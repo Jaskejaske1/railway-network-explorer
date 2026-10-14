@@ -4,12 +4,13 @@ import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import './styles.css'
 import { applyOverlayVisibility } from './visibility.js'
+import { belgianNow, initialDeparture, futureDepartureValid, clampToFuture } from './travelDate.js'
 
 const EMPTY = { type: 'FeatureCollection', features: [] }
 const COLORS = ['#529bff', '#eaa64e', '#c39aff', '#33d7b3', '#fb7295']
 
-const json = async url => {
-  const response = await fetch(url)
+const json = async (url, options = {}) => {
+  const response = await fetch(url, options)
   const data = await response.json()
   if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`)
   return data
@@ -22,34 +23,55 @@ const selectedPoint = (feature) => ({
   lat: feature.geometry.coordinates[1],
 })
 
-function StationPicker({ label, placeholder, value, onChange, onFocus }) {
+function StationPicker({ label, placeholder, value, onChange, onFocus, language = 'nl' }) {
   const [text, setText] = useState(value?.name ?? '')
   const [results, setResults] = useState([])
   const [expanded, setExpanded] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [searchError, setSearchError] = useState('')
   useEffect(() => { setText(value?.name ?? '') }, [value])
   useEffect(() => {
-    const ac = new AbortController()
-    if (!expanded || text.trim().length < 2) { setResults([]); return () => ac.abort() }
+    const abort = new AbortController()
+    if (!expanded || text.trim().length < 2 || value) {
+      setResults([]); setLoading(false); setSearchError('')
+      return () => abort.abort()
+    }
+    setLoading(true)
+    setResults([])
+    setSearchError('')
     const timeout = setTimeout(() => {
-      fetch(`/api/stations?search=${encodeURIComponent(text)}&limit=12`, { signal: ac.signal })
-        .then(r => r.json()).then(setResults).catch(e => { if (e.name !== 'AbortError') setResults([]) })
-    }, 180)
-    return () => { clearTimeout(timeout); ac.abort() }
-  }, [text, expanded])
+      json(`/api/gtfs/stations?search=${encodeURIComponent(text.trim())}&limit=12&lang=${language}`, { signal: abort.signal })
+        .then(data => { if (!abort.signal.aborted) setResults(data) })
+        .catch(e => { if (!abort.signal.aborted) setSearchError(`Zoeken mislukt: ${e.message}`) })
+        .finally(() => { if (!abort.signal.aborted) setLoading(false) })
+    }, 250)
+    return () => { clearTimeout(timeout); abort.abort() }
+  }, [text, expanded, language, value])
+  const choose = s => { onChange(s); setText(s.name); setExpanded(false); setResults([]) }
   return <div className="picker">
     <label>{label}</label>
     <div className="picker-field">
       <span className="search-icon">⌕</span>
       <input value={text} placeholder={placeholder} autoComplete="off"
+        aria-label={label}
         onFocus={() => { setExpanded(true); onFocus?.() }}
-        onBlur={() => setTimeout(() => setExpanded(false), 140)}
+        onBlur={() => setTimeout(() => setExpanded(false), 150)}
+        onKeyDown={e => {
+          if (e.key === 'Escape') setExpanded(false)
+          if (e.key === 'Enter' && results.length) { e.preventDefault(); choose(results[0]) }
+        }}
         onChange={e => { setText(e.target.value); onChange(null); setExpanded(true) }} />
-      {value && <button type="button" className="clear" aria-label={`${label} wissen`} onClick={() => { onChange(null); setText('') }}>×</button>}
+      {value && <button type="button" className="clear" aria-label={`${label} wissen`} onClick={() => { onChange(null); setText(''); setExpanded(true) }}>×</button>}
     </div>
-    {expanded && results.length > 0 && <div className="suggestions">
-      {results.map(s => <button key={s.id} type="button" onMouseDown={e => e.preventDefault()}
-        onClick={() => { onChange(s); setText(s.name); setExpanded(false) }}>
-        <span>{s.name}</span><span className="station-id">#{s.id}</span>
+    {expanded && text.trim().length >= 2 && !value && <div className="suggestions" role="listbox">
+      {loading && <div className="picker-status">Stations zoeken…</div>}
+      {!loading && searchError && <div className="picker-status picker-error">{searchError}</div>}
+      {!loading && !searchError && results.length === 0 && <div className="picker-status">Geen NMBS-stations gevonden.</div>}
+      {!loading && results.map(s => <button key={s.id} type="button" role="option" aria-selected={false}
+        onMouseDown={e => e.preventDefault()} onClick={() => choose(s)}>
+        <span>{s.name}</span><span className="station-id" title={`GTFS ${s.id}`}>
+          {s.original_name && s.original_name !== s.name ? s.original_name : s.id}
+        </span>
       </button>)}
     </div>}
   </div>
@@ -63,7 +85,7 @@ const basemapStyle = {
   layers: [{ id: 'basemap', type: 'raster', source: 'osm', paint: { 'raster-opacity': .88 } }],
 }
 
-function MapView({ allSegments, allStations, routes, active, selected, onStationPick, target, showNetwork, showStations }) {
+function MapView({ allSegments, allStations, routes, active, selected, onStationPick, target, showNetwork, showJourney, showStations }) {
   const element = useRef(null)
   const mapRef = useRef(null)
   const callback = useRef(onStationPick)
@@ -83,15 +105,21 @@ function MapView({ allSegments, allStations, routes, active, selected, onStation
       map.addLayer({ id: 'rail-shadow', type: 'line', source: 'network', paint: { 'line-color': '#061222', 'line-width': 5, 'line-opacity': .50 } })
       map.addLayer({ id: 'rail-base', type: 'line', source: 'network', paint: { 'line-color': '#748399', 'line-width': 2, 'line-opacity': .8 } })
       map.addSource('route', { type: 'geojson', data: EMPTY })
-      map.addLayer({ id: 'route-glow', type: 'line', source: 'route', paint: {
+      map.addLayer({ id: 'route-glow', type: 'line', source: 'route', filter: ['!=', ['get','geometry_source'], 'schematic_fallback'], paint: {
         'line-color': ['match', ['get', 'routeIndex'], 0, COLORS[0], 1, COLORS[1], 2, COLORS[2], 3, COLORS[3], COLORS[4]],
         'line-width': ['case', ['==', ['get', 'active'], 1], 11, 5], 'line-opacity': .24,
       } })
-      map.addLayer({ id: 'route-lines', type: 'line', source: 'route', paint: {
+      map.addLayer({ id: 'route-lines', type: 'line', source: 'route', filter: ['!=', ['get','geometry_source'], 'schematic_fallback'], paint: {
         'line-color': ['match', ['get', 'routeIndex'], 0, COLORS[0], 1, COLORS[1], 2, COLORS[2], 3, COLORS[3], COLORS[4]],
         'line-width': ['case', ['==', ['get', 'active'], 1], 5.5, 3],
         'line-opacity': ['case', ['==', ['get', 'active'], 1], 1, .65],
       } })
+      // Only unmatchable parts remain straight, and are unmistakably dashed.
+      map.addLayer({ id: 'route-fallback', type: 'line', source: 'route',
+        filter: ['==', ['get', 'geometry_source'], 'schematic_fallback'],
+        paint: { 'line-color': ['match', ['get', 'routeIndex'], 0, COLORS[0], 1, COLORS[1], 2, COLORS[2], 3, COLORS[3], COLORS[4]],
+                 'line-width': ['case', ['==', ['get', 'active'], 1], 4, 2.5],
+                 'line-opacity': .9, 'line-dasharray': [2, 2] } })
       map.addSource('stations', { type: 'geojson', data: EMPTY })
       map.addLayer({ id: 'stations-halo', type: 'circle', source: 'stations', paint: {
         'circle-radius': ['interpolate', ['linear'], ['zoom'], 6, 2, 10, 5],
@@ -166,12 +194,12 @@ function MapView({ allSegments, allStations, routes, active, selected, onStation
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
-    const update = () => applyOverlayVisibility(map, { showNetwork, showStations })
+    const update = () => applyOverlayVisibility(map, { showNetwork, showJourney, showStations })
     // Keep the selected route and the selected station markers in the same
     // toggle group as their respective background features.
     if (map.getLayer('chosen-halo')) update()
     else map.once('load', update)
-  }, [showNetwork, showStations])
+  }, [showNetwork, showJourney, showStations])
 
   useEffect(() => {
     const map = mapRef.current
@@ -188,145 +216,236 @@ function MapView({ allSegments, allStations, routes, active, selected, onStation
 }
 
 function App() {
+  const [language, setLanguage] = useState('nl')
+  const [clockNow, setClockNow] = useState(belgianNow)
   const [meta, setMeta] = useState(null)
+  const [feed, setFeed] = useState(null)
   const [segments, setSegments] = useState(EMPTY)
   const [stations, setStations] = useState(EMPTY)
+  const [dataError, setDataError] = useState('')
   const [from, setFrom] = useState(null)
   const [to, setTo] = useState(null)
-  const [via, setVia] = useState(null)
   const [target, setTarget] = useState('from')
-  const [routes, setRoutes] = useState([])
+  const [travelDate, setTravelDate] = useState(() => initialDeparture().date)
+  const [travelTime, setTravelTime] = useState(() => initialDeparture().time)
+  const [viaTransfer, setViaTransfer] = useState(null)
+  const [journeys, setJourneys] = useState([])
   const [active, setActive] = useState(0)
+  const [expandedRoute, setExpandedRoute] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [networkVisible, setNetworkVisible] = useState(true)
+  const [journeyVisible, setJourneyVisible] = useState(true)
   const [stationsVisible, setStationsVisible] = useState(true)
-  const [expandedRoute, setExpandedRoute] = useState(null)
 
   useEffect(() => {
-    Promise.all([json('/api/meta'), json('/api/network'), json('/api/stations/geojson')])
-      .then(([m, network, points]) => { setMeta(m); setSegments(network); setStations(points) })
-      .catch(e => setError(`Netwerk laden mislukt: ${e.message}`))
+    const tick = () => setClockNow(belgianNow())
+    const interval = setInterval(tick, 30_000)
+    return () => clearInterval(interval)
+  }, [])
+  const dateMinimum = clockNow.date > (feed?.feed?.start_date || '') ? clockNow.date : feed?.feed?.start_date || clockNow.date
+  const feedExpired = !!(feed?.feed?.end_date && feed.feed.end_date < clockNow.date)
+  const validDeparture = futureDepartureValid(travelDate, travelTime, clockNow) && !feedExpired
+  useEffect(() => {
+    const adjusted = clampToFuture(travelDate, travelTime, clockNow)
+    if (adjusted.date !== travelDate) setTravelDate(adjusted.date)
+    if (adjusted.time !== travelTime) setTravelTime(adjusted.time)
+  }, [clockNow])
+
+  useEffect(() => {
+    // The infrastructure network and the timetable are TWO data sources in ONE UI.
+    json('/api/meta').then(setMeta).catch(e => setDataError(e.message))
+    json('/api/network').then(setSegments).catch(e => setDataError(e.message))
+    json('/api/gtfs/meta').then(setFeed).catch(e => setDataError(e.message))
   }, [])
 
   useEffect(() => {
-    if (!from || !to) { setRoutes([]); setError(''); return }
-    const ac = new AbortController()
-    const params = new URLSearchParams({ from_id: from.id, to_id: to.id, alternatives: 3 })
-    if (via) params.set('via_id', via.id)
+    const abort = new AbortController()
+    json(`/api/gtfs/stations/geojson?lang=${language}`, { signal: abort.signal })
+      .then(setStations).catch(e => { if (e.name !== 'AbortError') setDataError(e.message) })
+    return () => abort.abort()
+  }, [language])
+
+  useEffect(() => {
+    // A language change must never alter the selected GTFS stop IDs.
+    if (!stations.features.length) return
+    const namesById = new Map(stations.features.map(f => [f.properties.id, f.properties.name]))
+    for (const setter of [setFrom, setTo]) {
+      setter(previous => {
+        if (!previous || !namesById.has(previous.id)) return previous
+        const name = namesById.get(previous.id)
+        return name === previous.name ? previous : { ...previous, name }
+      })
+    }
+  }, [stations])
+
+  useEffect(() => {
+    if (!from || !to || !feed?.available || !validDeparture) {
+      setJourneys([])
+      setError('')
+      setLoading(false)
+      return
+    }
+    if (from.id === to.id) {
+      setJourneys([])
+      setError('Vertrekstation en aankomststation zijn hetzelfde.')
+      setLoading(false)
+      return
+    }
+    const abort = new AbortController()
+    const params = new URLSearchParams({ from_id: from.id, to_id: to.id,
+      date: travelDate, time: travelTime, alternatives: '4', lang: language })
+    if (viaTransfer) params.set('via_transfer_id', viaTransfer.id)
     setLoading(true)
     setError('')
-    fetch(`/api/routes?${params.toString()}`, { signal: ac.signal })
+    setJourneys([])
+    fetch(`/api/gtfs/routes?${params}`, { signal: abort.signal })
       .then(async response => {
-        const data = await response.json()
-        if (!response.ok) throw Error(data.detail || `HTTP ${response.status}`)
-        return data
+        const payload = await response.json()
+        if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : `HTTP ${response.status}`)
+        return payload
       })
-      .then(data => { setRoutes(data.routes); setActive(0); setExpandedRoute(null) })
-      .catch(e => { if (e.name !== 'AbortError') { setError(e.message); setRoutes([]) } })
-      .finally(() => { if (!ac.signal.aborted) setLoading(false) })
-    return () => ac.abort()
-  }, [from, to, via])
+      .then(data => { if (!abort.signal.aborted) { setJourneys(data.journeys); setActive(0); setExpandedRoute(null) } })
+      .catch(e => { if (!abort.signal.aborted) setError(`Route zoeken mislukt: ${e.message}`) })
+      .finally(() => { if (!abort.signal.aborted) setLoading(false) })
+    return () => abort.abort()
+  }, [from, to, viaTransfer, travelDate, travelTime, feed?.available, language, validDeparture])
 
-  const onPick = (s, mode) => {
-    if (mode === 'from') { setFrom(s); setTarget('to') }
-    else if (mode === 'to') { setTo(s); setTarget('via') }
-    else { setVia(s); setTarget('via') }
+  const onPick = (station, mode) => {
+    if (mode === 'from') { setFrom(station); setTarget('to') }
+    else if (mode === 'to') { setTo(station); setTarget('from') }
+    else { setViaTransfer(station); setTarget('from') }
   }
-
-  const useExample = async () => {
+  const example = async (destination) => {
     try {
-      const [a, b] = await Promise.all([
-        json('/api/stations?search=Leuven&limit=100'),
-        json('/api/stations?search=Katelijne&limit=100'),
+      const [first, last] = await Promise.all([
+        json(`/api/gtfs/stations?search=Leuven&limit=30&lang=${language}`),
+        json(`/api/gtfs/stations?search=${encodeURIComponent(destination)}&limit=30&lang=${language}`),
       ])
-      const first = a.find(s => s.name.toLowerCase() === 'leuven') || a[0]
-      const last = b.find(s => /katelijne.waver/i.test(s.name)) || b[0]
-      if (!first || !last) throw Error('De voorbeeldstations zijn niet gevonden in de geïmporteerde dataset')
-      setFrom(first); setTo(last); setVia(null); setTarget('via')
+      const a = first.find(s => s.id === 'gs:nmbssncb:S8833001') || first[0]
+      const b = last.find(s => s.name.toLowerCase() === destination.toLowerCase() || s.original_name.toLowerCase() === destination.toLowerCase()) || last[0]
+      if (!a || !b) throw Error('Voorbeeldstations niet gevonden. Controleer /api/gtfs/stations.')
+      setFrom(a); setTo(b); setViaTransfer(null); setTarget('from')
     } catch (e) { setError(e.message) }
   }
 
-  const hasData = (meta?.segments ?? 0) > 0
   return <div className="app">
     <aside className="sidebar">
       <header className="brand">
         <div className="logo"><span className="rail-lines">≋</span></div>
-        <div><h1>Railway<span>Explorer</span></h1><p>Belgian rail network · prototype 0.1.2</p></div>
+        <div><h1>Railway<span>Explorer</span></h1><p>Belgian rail network · prototype 0.3.3</p></div>
       </header>
-
       <div className="sidebar-scroll">
         <section className="panel intro">
-          <div className="eyebrow"><span className="pulse"/> NETWORK EXPLORER</div>
-          <h2>Ontdek elk spoortraject.</h2>
-          <p>Verken de verbindingen tussen stations, vergelijk alternatieve paden en onderzoek een route via een zelfgekozen station.</p>
+          <div className="eyebrow"><span className="pulse"/> NETWORK & JOURNEY EXPLORER</div>
+          <h2>Eén kaart. Echte treinreizen.</h2>
+          <p>Bekijk geplande NMBS-ritten, overstappen en alternatieven op de achtergrond van het fysieke Infrabel-spoorwegnet.</p>
           <div className="quick-stats">
-            <div><strong>{meta ? meta.stations.toLocaleString('nl-BE') : '—'}</strong><span>Punten</span></div>
-            <div><strong>{meta ? meta.segments.toLocaleString('nl-BE') : '—'}</strong><span>Segmenten</span></div>
+            <div><strong>{meta?.segments?.toLocaleString('nl-BE') ?? '—'}</strong><span>Spoorsegmenten</span></div>
+            <div><strong>{feed?.feed?.trip_count?.toLocaleString('nl-BE') ?? '—'}</strong><span>GTFS-ritten</span></div>
           </div>
         </section>
 
         <section className="panel planner">
-          <div className="section-heading"><h3>Traject samenstellen</h3><span className="section-num">01</span></div>
-          <StationPicker label="VERTREKSTATION" placeholder="Zoek een station..." value={from} onChange={setFrom} onFocus={() => setTarget('from')} />
-          <div className="swap-row"><button onClick={() => { setFrom(to); setTo(from) }} title="Wissel vertrek en aankomst">⇅</button><span>Zoek of klik een station op de kaart</span></div>
-          <StationPicker label="AANKOMSTSTATION" placeholder="Zoek je bestemming..." value={to} onChange={setTo} onFocus={() => setTarget('to')} />
-          <div className="via-divider"><span>OPTIONEEL</span></div>
-          <StationPicker label="VIA-STATION (GEEN OVERSTAP)" placeholder="Forceer een spoorwegknooppunt..." value={via} onChange={setVia} onFocus={() => setTarget('via')} />
-          <p className="field-note">Een VIA-station dwingt een spoorwegpad af, niet een treinhalte of overstap.</p>
-          <div className="map-target"><span>Kaartklik vult in:</span>
-            {['from', 'to', 'via'].map((v, i) => <button key={v} className={target === v ? 'active' : ''} onClick={() => setTarget(v)}>{['Vertrek', 'Aankomst', 'Via'][i]}</button>)}
+          <div className="section-heading"><h3>Reis plannen</h3><span className="section-num">01</span></div>
+          {!feed?.available && <p className="route-disclaimer">Nog geen GTFS-dienstregeling beschikbaar. Importeer eerst de NMBS GTFS-feed.</p>}
+          <div className="locale-controls">
+            <label htmlFor="station-language">STATIONSNAMEN TONEN IN</label>
+            <select id="station-language" value={language} onChange={e => setLanguage(e.target.value)}>
+              <option value="nl">Nederlands</option>
+              <option value="fr">Français</option>
+              <option value="de">Deutsch</option>
+              <option value="en">English</option>
+            </select>
+            <span>Zoeken werkt in alle vier talen, ongeacht deze keuze.</span>
           </div>
-          <button className="example-button" onClick={useExample} disabled={!hasData}>Probeer Leuven → Sint-Katelijne-Waver <span>↗</span></button>
+          <StationPicker label="VERTREKSTATION" language={language} placeholder="Zoek een NMBS-station…"
+            value={from} onChange={setFrom} onFocus={() => setTarget('from')} />
+          <div className="swap-row"><button onClick={() => { setFrom(to); setTo(from) }} title="Wissel vertrek en aankomst">⇅</button><span>Typ of klik een station op de kaart</span></div>
+          <StationPicker label="AANKOMSTSTATION" language={language} placeholder="Zoek je bestemming…"
+            value={to} onChange={setTo} onFocus={() => setTarget('to')} />
+          <StationPicker label="OVERSTAPPEN IN (OPTIONEEL)" language={language}
+            placeholder="Bijvoorbeeld Bordet…" value={viaTransfer}
+            onChange={setViaTransfer} onFocus={() => setTarget('via')} />
+          <p className="field-note">Dwingt een echte wissel van trein af in dit station, niet alleen een spoorwegpad via dit station.</p>
+          <div className="date-time-controls">
+            <label>REISDATUM<input type="date" value={travelDate} min={dateMinimum} max={feed?.feed?.end_date || undefined}
+              onChange={e => { const next = clampToFuture(e.target.value, travelTime, belgianNow()); setTravelDate(next.date); setTravelTime(next.time) }}/></label>
+            <label>VERTREK VANAF<input type="time" value={travelTime}
+              min={travelDate === clockNow.date ? clockNow.time : undefined}
+              onChange={e => { const next = clampToFuture(travelDate, e.target.value, belgianNow()); setTravelDate(next.date); setTravelTime(next.time) }}/></label>
+          </div>
+          <div className="map-target"><span>Volgende kaartklik vult in:</span>
+            {['from', 'to', 'via'].map((value, index) => <button key={value} className={target === value ? 'active' : ''}
+              onClick={() => setTarget(value)}>{['Vertrek', 'Aankomst', 'Overstap'][index]}</button>)}
+          </div>
+          <div className="example-actions">
+            <button className="example-button" onClick={() => example('Weerde')} disabled={!feed?.available}>Probeer Leuven → Weerde <span>↗</span></button>
+            <button className="example-button" onClick={() => example('Sint-Katelijne-Waver')} disabled={!feed?.available}>Leuven → Sint-Katelijne-Waver <span>↗</span></button>
+          </div>
         </section>
 
         <section className="panel results">
-          <div className="section-heading"><h3>Infrastructuurpaden</h3><span className="section-num">02</span></div>
-          <p className="route-disclaimer">Paden op basis van spoorafstand. Dit zijn <strong>geen NMBS-treinreizen</strong>; haltes en overstappen zijn onbekend.</p>
-          {loading && <p className="muted">Routes berekenen…</p>}
+          <div className="section-heading"><h3>Geplande treinreizen</h3><span className="section-num">02</span></div>
+          <p className="route-disclaimer">Geplande GTFS-ritten, getekend langs <strong>geschatte Infrabel-spoortrajecten</strong>. Gestippelde stukken konden niet aan het netwerk worden gekoppeld. De exacte rijweg is niet bekend.</p>
+          {feedExpired && <p role="alert" className="error">De GTFS-feed is verlopen. Importeer eerst een actuelere dienstregeling.</p>}
+          {viaTransfer && <p className="small-note">Alleen reizen met een echte overstap in {viaTransfer.name}.</p>}
+          {dataError && <p role="alert" className="error">Data laden mislukt: {dataError}</p>}
           {error && <p role="alert" className="error">{error}</p>}
-          {!hasData && !error && <div className="empty-state"><strong>Nog geen spoorwegdata</strong><p>Voer de Infrabel-import uit om het netwerk te laden.</p><code>docker compose exec api python -m app.importer</code></div>}
-          {hasData && !from && !to && <p className="muted">Selecteer een vertrekstation en bestemming om infrastructuurpaden te vergelijken.</p>}
-          {routes.length > 0 && <div className="route-list">
-            {routes.map((route, i) => <div key={i} className={`route-card ${active === i ? 'selected' : ''}`}>
+          {loading && <p className="muted">Geplande treinen en overstappen berekenen…</p>}
+          {!from || !to ? <p className="muted">Selecteer twee stations. De planner zoekt meteen naar ritten op de gekozen datum.</p> : null}
+          {feed?.available && journeys.length === 0 && from && to && !loading && !error && <p className="muted">{viaTransfer ? `Geen geplande reis met een overstap in ${viaTransfer.name} gevonden binnen de huidige zoekhorizon. Dit sluit andere routes of NMBS-opties niet uit.` : 'Geen reis gevonden. Probeer een andere datum of vertrekperiode.'}</p>}
+          {journeys.length > 0 && <div className="route-list">
+            {journeys.map((journey, i) => <div key={`${journey.departure}-${i}`} className={`route-card ${active === i ? 'selected' : ''}`}>
               <button className="route-primary" onClick={() => { setActive(i); setExpandedRoute(expandedRoute === i ? null : i) }}>
-                <span className="route-dot" style={{ background: COLORS[i] }} />
-                <span className="route-description"><b>{via ? `Spoorwegpad via ${via.name}` : i === 0 ? 'Kortste spoorwegpad' : `Fysiek alternatief ${i}`}</b>
-                  <small>{route.station_ids.length} punten · {route.segment_ids.length} segmenten · geen overstappen berekend</small></span>
-                <strong>{route.distance_km.toLocaleString('nl-BE', { maximumFractionDigits: 2 })} km</strong>
+                <span className="route-dot" style={{ background: COLORS[i] }}/>
+                <span className="route-description"><b>{journey.departure} → {journey.arrival}</b>
+                  <small>{journey.transfer_count === 0 ? 'Rechtstreekse trein' : `${journey.transfer_count} overstap${journey.transfer_count > 1 ? 'pen' : ''} · ${journey.transfer_stations.join(', ')}`}</small>
+                </span>
+                <strong>{journey.legs.length} trein{journey.legs.length === 1 ? '' : 'en'}</strong>
               </button>
               {active === i && <div className="route-more">
-                <div>{route.station_names.slice(0, 5).join(' → ')}{route.station_names.length > 5 ? ' → …' : ''}</div>
-                {route.repeats_stations && <p className="warning">Dit pad bezoekt minstens één station meermaals.</p>}
-                <button onClick={() => setExpandedRoute(expandedRoute === i ? null : i)}>{expandedRoute === i ? 'Verberg volledige route ↑' : 'Toon alle stations ↓'}</button>
-                {expandedRoute === i && <ol>{route.station_names.map((name, index) => <li key={`${name}-${index}`}>{name}{via && route.station_ids[index] === via.id ? ' · via (niet noodzakelijk een stop)' : ''}</li>)}</ol>}
+                {journey.geometry_quality && <p className="small-note">
+                  Infrabel-benadering: {journey.geometry_quality.infrabel_segments} spoorsegmenten;
+                  {journey.geometry_quality.schematic_fallbacks > 0
+                    ? ` ${journey.geometry_quality.schematic_fallbacks} gestippelde, onbekende trajectdelen.`
+                    : ' geen gestippelde trajectdelen.'}
+                </p>}
+                {journey.legs.map((leg, n) => <div key={`${leg.trip_id}-${n}`} className="journey-leg">
+                  <strong>{leg.departure} {leg.from_name} → {leg.arrival} {leg.to_name}</strong>
+                  <div>Trein {leg.route || leg.trip_id}{leg.headsign ? ` · richting ${leg.headsign}` : ''}</div>
+                  {n < journey.legs.length - 1 && <div className="transfer-label">Overstap in {leg.to_name}</div>}
+                  {expandedRoute === i && <ol>{leg.stop_names.map((s, k) => <li key={k}>{s}</li>)}</ol>}
+                </div>)}
+                <button onClick={() => setExpandedRoute(expandedRoute === i ? null : i)}>{expandedRoute === i ? 'Verberg tussenhaltes ↑' : 'Toon tussenhaltes ↓'}</button>
               </div>}
             </div>)}
           </div>}
-          {routes.length > 0 && <p className="small-note">Afstanden: Infrabel-schatting. Dit zijn <strong>fysieke paden</strong>, geen gegarandeerde treinritten.</p>}
+          <p className="small-note">Dienstregeling: NMBS GTFS Static. Geen realtimegegevens, geen bevestiging van abonnementsdekking of exact gevolgde sporen.</p>
         </section>
-
-        <section className="panel footnotes"><div><span className="dot-green"/> Data: Infrabel Open Data</div>
-          <p>{meta?.imported_at ? `Laatste import: ${new Date(meta.imported_at).toLocaleString('nl-BE')}` : 'Nog geen data geïmporteerd'}</p>
-          <p>Kaart © OpenStreetMap-bijdragers · Infrabel-data CC0.</p>
-          <p>Geen dienstregeling of abonnementscontrole.</p>
+        <section className="panel footnotes">
+          <div><span className="dot-green"/> Infrabel infrastructuur + NMBS GTFS Static</div>
+          <p>{feed?.feed?.imported_at ? `Dienstregeling geïmporteerd: ${new Date(feed.feed.imported_at).toLocaleString('nl-BE')}` : 'GTFS niet geïmporteerd'}</p>
+          <p>Basemap © OpenStreetMap contributors</p>
         </section>
       </div>
     </aside>
-
     <main className="map-area">
-      <MapView allSegments={segments} allStations={stations} routes={routes} active={active}
-        selected={[from, to, via]} onStationPick={onPick} target={target}
-        showNetwork={networkVisible} showStations={stationsVisible}/>
-      <div className="map-topbar"><span className="map-label"><span className="dot-green"/> Infrabel infrastructuurnetwerk</span>
+      <MapView allSegments={segments} allStations={stations} routes={journeys} active={active}
+        selected={[from, to, viaTransfer]} onStationPick={onPick} target={target}
+        showNetwork={networkVisible} showJourney={journeyVisible} showStations={stationsVisible}/>
+      <div className="map-topbar"><span className="map-label"><span className="dot-green"/> NMBS treinen + Infrabel spoorwegnet</span>
         <span className="map-label secondary-label">België · WGS84</span></div>
       <div className="map-controls">
-        <label><input type="checkbox" checked={networkVisible} onChange={e => setNetworkVisible(e.target.checked)}/><span>Spoorlijnen inclusief routes</span></label>
-        <label><input type="checkbox" checked={stationsVisible} onChange={e => setStationsVisible(e.target.checked)}/><span>Stations inclusief selectie</span></label>
+        <label><input type="checkbox" checked={networkVisible} onChange={e => setNetworkVisible(e.target.checked)}/> Fysieke spoorlijnen</label>
+        <label><input type="checkbox" checked={journeyVisible} onChange={e => setJourneyVisible(e.target.checked)}/> Geplande treinreis</label>
+        <label><input type="checkbox" checked={stationsVisible} onChange={e => setStationsVisible(e.target.checked)}/> NMBS-stations</label>
       </div>
-      <div className="map-legend"><div className={!networkVisible ? "legend-disabled" : ""}><i className="legend-line"/> Spoornetwerk</div>
-        <div className={!networkVisible ? "legend-disabled" : ""}><i className="legend-line active"/> Geselecteerd pad</div>
-        <div className={!stationsVisible ? "legend-disabled" : ""}><i className="legend-circle"/> Station</div></div>
+      <div className="map-legend">
+        <div className={!networkVisible ? 'legend-disabled' : ''}><i className="legend-line"/> Infrabel spoorlijnen</div>
+        <div className={!journeyVisible ? 'legend-disabled' : ''}><i className="legend-line active"/> GTFS-reis (Infrabel-benadering)</div>
+        <div className={!stationsVisible ? 'legend-disabled' : ''}><i className="legend-circle"/> NMBS-station</div>
+      </div>
     </main>
   </div>
 }

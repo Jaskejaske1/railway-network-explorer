@@ -19,11 +19,13 @@ services:
     build: ./backend
     environment:
       DATABASE_URL: postgresql://railway:${DB_PASSWORD:-railway_dev_password}@db:5432/railway
+      GTFS_API_KEY: ${GTFS_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - ./backend/app:/app/app:ro
+      - ./data:/data:ro
     ports:
       - "127.0.0.1:8000:8000"
 

@@ -5,3 +5,7 @@ node_modules/
 dist/
 *.pyc
 .DS_Store
+
+# Large GTFS feeds are downloaded separately, never committed
+data/*
+!data/.gitkeep

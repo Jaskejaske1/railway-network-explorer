@@ -1,19 +1,19 @@
-// All map overlays belonging to each checkbox.  Keeping this list in one
-// place prevents route highlights or selection markers from staying visible.
+// Each layer answers its own question. Turning off the physical tracks
+// never hides the (schematic) selected train itinerary.
 export const OVERLAY_LAYERS = Object.freeze({
-  network: ['rail-shadow', 'rail-base', 'route-glow', 'route-lines'],
+  network: ['rail-shadow', 'rail-base'],
+  journey: ['route-glow', 'route-lines', 'route-fallback'],
   stations: ['stations-halo', 'station-names', 'chosen-halo'],
 })
 
-export function applyOverlayVisibility(map, { showNetwork, showStations }) {
-  for (const [category, visible] of [
+export function applyOverlayVisibility(map, { showNetwork, showJourney, showStations }) {
+  for (const [group, visible] of [
     ['network', showNetwork],
+    ['journey', showJourney],
     ['stations', showStations],
   ]) {
-    for (const layerId of OVERLAY_LAYERS[category]) {
-      if (map.getLayer(layerId)) {
-        map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none')
-      }
+    for (const id of OVERLAY_LAYERS[group]) {
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none')
     }
   }
 }

@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS rail_segments (
     CONSTRAINT different_stations CHECK (from_station_id <> to_station_id)
 );
 CREATE INDEX IF NOT EXISTS idx_station_geom ON stations USING GIST (geom);
+CREATE INDEX IF NOT EXISTS idx_station_geom_geog ON stations USING GIST ((geom::geography));
 CREATE INDEX IF NOT EXISTS idx_segment_geom ON rail_segments USING GIST (geom);
 CREATE INDEX IF NOT EXISTS idx_segment_from ON rail_segments (from_station_id);
 CREATE INDEX IF NOT EXISTS idx_segment_to ON rail_segments (to_station_id);
