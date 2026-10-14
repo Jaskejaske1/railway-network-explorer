@@ -16,7 +16,7 @@ async def lifespan(_app):
     yield
 
 
-app = FastAPI(title="Railway Network Explorer", version="0.1.2", lifespan=lifespan,
+app = FastAPI(title="Railway Network Explorer", version="0.2.0", lifespan=lifespan,
               description="Infrastructure graph from Infrabel, not a train timetable or ticket validator")
 
 
@@ -131,3 +131,61 @@ def routes(from_id: str, to_id: str, via_id: str | None = None,
     return {"basis": "estimated_infrastructure_distance", "mode": "infrastructure_only",
             "transfer_stations": None, "scheduled_service": False,
             "ticket_validity": "not_checked", "routes": result}
+
+
+# Scheduled train services are isolated from the Infrabel infrastructure router.
+# GTFS is imported separately; routes are available only when a feed is present.
+from datetime import date as date_type
+from .gtfs_db import ensure_gtfs_schema
+from .gtfs_routing import timetable_routes
+
+
+@app.get('/api/gtfs/meta')
+def gtfs_meta():
+    ensure_gtfs_schema()
+    result = rows("""
+        SELECT imported_at, source_name, stop_count, trip_count, connection_count,
+               start_date, end_date
+        FROM gtfs_import_runs ORDER BY id DESC LIMIT 1
+    """)
+    return {'available': bool(result), 'feed': result[0] if result else None,
+            'mode': 'scheduled_gtfs_only', 'realtime': False, 'ticket_validity': 'not_checked'}
+
+
+@app.get('/api/gtfs/stations')
+def gtfs_stations(search: str = '', limit: int = Query(15, ge=1, le=50)):
+    ensure_gtfs_schema()
+    if len(search.strip()) < 2:
+        return []
+    pattern = f"%{search.strip()}%"
+    return rows("""
+        SELECT s.stop_id AS id, s.name, s.lat, s.lon
+        FROM gtfs_stops s
+        WHERE s.name ILIKE %s
+          AND (EXISTS (SELECT 1 FROM gtfs_connections c WHERE c.from_stop_id=s.stop_id)
+               OR EXISTS (SELECT 1 FROM gtfs_connections c WHERE c.to_stop_id=s.stop_id))
+        ORDER BY CASE WHEN LOWER(s.name)=LOWER(%s) THEN 0 ELSE 1 END, s.name
+        LIMIT %s
+    """, (pattern, search.strip(), limit))
+
+
+@app.get('/api/gtfs/routes')
+def gtfs_routes(from_id: str, to_id: str, date: date_type,
+                time: str = Query('08:00', pattern=r'^\d{2}:\d{2}$'),
+                alternatives: int = Query(4, ge=1, le=5)):
+    ensure_gtfs_schema()
+    last = rows('SELECT start_date, end_date FROM gtfs_import_runs ORDER BY id DESC LIMIT 1')
+    if not last:
+        raise HTTPException(status_code=503, detail='Importeer eerst een NMBS GTFS Static ZIP')
+    if (last[0]['start_date'] and date < last[0]['start_date'] or
+        last[0]['end_date'] and date > last[0]['end_date']):
+        raise HTTPException(status_code=422, detail='Datum valt buiten het bereik van de GTFS-feed')
+    try:
+        journeys = timetable_routes(from_id, to_id, date, time, alternatives)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {'mode': 'scheduled_gtfs_only', 'service_date': date,
+            'realtime': False, 'ticket_validity': 'not_checked',
+            'geometry_is_schematic': True, 'journeys': journeys}
