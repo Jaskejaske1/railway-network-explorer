@@ -31,3 +31,9 @@
 .locale-controls select { min-height: 39px; border-radius: 8px; color: #e6efff;
   background: #131e30; border: 1px solid #354b71; padding: 8px; }
 .locale-controls span { color: #8799b8; font-size: 11px; line-height: 1.45; }
+
+/* First incremental Mantine migration: station search only. */
+.station-field { margin-bottom: 12px; }
+.station-field .mantine-Input-input { background: #0b1729; color: #e8f2ff; border-color: #32455d; font-size: 12px; min-height: 43px; }
+.station-field .mantine-Input-input:focus { border-color: #4f94fa; }
+.station-field .mantine-InputWrapper-label { color: #90a6c2; font-size: 10px; font-weight: 700; letter-spacing: 1px; margin-bottom: 8px; }

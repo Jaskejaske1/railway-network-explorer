@@ -4,17 +4,17 @@ import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import './styles.css'
 import { applyOverlayVisibility } from './visibility.js'
+import { api } from './api.js'
+import { StationPicker } from './components/StationPicker.jsx'
+import { MantineProvider } from '@mantine/core'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import '@mantine/core/styles.css'
 import { belgianNow, initialDeparture, futureDepartureValid, clampToFuture } from './travelDate.js'
 
 const EMPTY = { type: 'FeatureCollection', features: [] }
 const COLORS = ['#529bff', '#eaa64e', '#c39aff', '#33d7b3', '#fb7295']
 
-const json = async (url, options = {}) => {
-  const response = await fetch(url, options)
-  const data = await response.json()
-  if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`)
-  return data
-}
+const json = api
 
 const selectedPoint = (feature) => ({
   id: feature.properties.id,
@@ -23,59 +23,6 @@ const selectedPoint = (feature) => ({
   lat: feature.geometry.coordinates[1],
 })
 
-function StationPicker({ label, placeholder, value, onChange, onFocus, language = 'nl' }) {
-  const [text, setText] = useState(value?.name ?? '')
-  const [results, setResults] = useState([])
-  const [expanded, setExpanded] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [searchError, setSearchError] = useState('')
-  useEffect(() => { setText(value?.name ?? '') }, [value])
-  useEffect(() => {
-    const abort = new AbortController()
-    if (!expanded || text.trim().length < 2 || value) {
-      setResults([]); setLoading(false); setSearchError('')
-      return () => abort.abort()
-    }
-    setLoading(true)
-    setResults([])
-    setSearchError('')
-    const timeout = setTimeout(() => {
-      json(`/api/gtfs/stations?search=${encodeURIComponent(text.trim())}&limit=12&lang=${language}`, { signal: abort.signal })
-        .then(data => { if (!abort.signal.aborted) setResults(data) })
-        .catch(e => { if (!abort.signal.aborted) setSearchError(`Zoeken mislukt: ${e.message}`) })
-        .finally(() => { if (!abort.signal.aborted) setLoading(false) })
-    }, 250)
-    return () => { clearTimeout(timeout); abort.abort() }
-  }, [text, expanded, language, value])
-  const choose = s => { onChange(s); setText(s.name); setExpanded(false); setResults([]) }
-  return <div className="picker">
-    <label>{label}</label>
-    <div className="picker-field">
-      <span className="search-icon">⌕</span>
-      <input value={text} placeholder={placeholder} autoComplete="off"
-        aria-label={label}
-        onFocus={() => { setExpanded(true); onFocus?.() }}
-        onBlur={() => setTimeout(() => setExpanded(false), 150)}
-        onKeyDown={e => {
-          if (e.key === 'Escape') setExpanded(false)
-          if (e.key === 'Enter' && results.length) { e.preventDefault(); choose(results[0]) }
-        }}
-        onChange={e => { setText(e.target.value); onChange(null); setExpanded(true) }} />
-      {value && <button type="button" className="clear" aria-label={`${label} wissen`} onClick={() => { onChange(null); setText(''); setExpanded(true) }}>×</button>}
-    </div>
-    {expanded && text.trim().length >= 2 && !value && <div className="suggestions" role="listbox">
-      {loading && <div className="picker-status">Stations zoeken…</div>}
-      {!loading && searchError && <div className="picker-status picker-error">{searchError}</div>}
-      {!loading && !searchError && results.length === 0 && <div className="picker-status">Geen NMBS-stations gevonden.</div>}
-      {!loading && results.map(s => <button key={s.id} type="button" role="option" aria-selected={false}
-        onMouseDown={e => e.preventDefault()} onClick={() => choose(s)}>
-        <span>{s.name}</span><span className="station-id" title={`GTFS ${s.id}`}>
-          {s.original_name && s.original_name !== s.name ? s.original_name : s.id}
-        </span>
-      </button>)}
-    </div>}
-  </div>
-}
 
 const basemapStyle = {
   version: 8,
@@ -450,4 +397,11 @@ function App() {
   </div>
 }
 
-createRoot(document.getElementById('root')).render(<App />)
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
+})
+createRoot(document.getElementById('root')).render(
+  <MantineProvider defaultColorScheme="dark">
+    <QueryClientProvider client={queryClient}><App /></QueryClientProvider>
+  </MantineProvider>
+)
