@@ -1,5 +1,7 @@
 # Railway Network Explorer — v0.3.3
 
+> **Leidend productbesluit:** zie [docs/PRODUCT_DECISIONS.md](docs/PRODUCT_DECISIONS.md). Het project is nu uitsluitend gericht op **huidige en nabije toekomstige treinverbindingen en actuele infrastructuur**, zonder historisch archief. Project Atlas is de tijdelijke ontwikkelnaam.
+
 Interactieve webapplicatie die één zoek- en reisplanner combineert met de Infrabel-infrastructuurkaart en NMBS GTFS-dienstregeling. Treinreizen bestaan uit daadwerkelijke geplande GTFS-ritten en overstappen; de achtergronduitlijning van sporen komt uit Infrabel. In v0.3.3 worden treinreizen waar mogelijk langs Infrabel-station-naar-station-segmenten geprojecteerd (een **benadering**, niet de geverifieerde rijweg van de trein). Ontbrekende koppelingen blijven zichtbaar als **gestippelde rechte lijnen**.
 
 ## Wat werkt in deze versie?
