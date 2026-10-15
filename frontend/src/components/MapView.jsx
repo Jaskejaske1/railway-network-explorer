@@ -14,7 +14,7 @@ const basemapStyle = {
   layers: [{ id: 'basemap', type: 'raster', source: 'osm', paint: { 'raster-opacity': .88 } }],
 }
 
-export export function MapView({ allSegments, allStations, routes, active, selected, onStationPick, target, showNetwork, showJourney, showStations }) {
+export function MapView({ allSegments, allStations, routes, active, selected, onStationPick, target, showNetwork, showJourney, showStations }) {
   const element = useRef(null)
   const mapRef = useRef(null)
   const callback = useRef(onStationPick)
