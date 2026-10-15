@@ -95,3 +95,7 @@ Test in de browser met een toekomstige datum en **Leuven → Weerde**. Kies daar
 `OVERSTAPPEN IN` expliciet **Bordet** om die specifieke mogelijkheid te onderzoeken.
 Controleer of de blauwe route op de donkere sporen ligt en of ontbrekende stukken gestippeld zijn.
 Push naar GitHub alleen na een geslaagde browsertest.
+
+## UI-refactor preview (0.4.0)
+
+Zie [`UI-REFACTOR.md`](UI-REFACTOR.md). Mantine-componenten, TanStack Query, toegankelijkere mobiele lay-out en automatische CI-tests. **Nog niet publiek deployen**; de productie-backend en deployment blijven een aparte fase.
