@@ -55,7 +55,7 @@ def test_all_language_search_and_display_are_separate(monkeypatch):
     monkeypatch.setattr(main,'rows',fake_rows)
     assert main.gtfs_stations('Löwen',10,'nl')[0]['name']=='Leuven'
     assert 'EXISTS (SELECT 1 FROM gtfs_station_translations tr' in captured['sql']
-    assert captured['params'] == ('nl','%Löwen%','%Löwen%','%Löwen%','Löwen','Löwen','Löwen',10)
+    assert captured['params'] == ('nl','%Löwen%','%Löwen%','%Löwen%','Löwen','Löwen','Löwen','Löwen%','Löwen%',10)
     assert main.gtfs_stations('Leuven',10,'fr')[0]['id']=='gs:nmbssncb:S8833001'
     assert captured['params'][0]=='fr'
 

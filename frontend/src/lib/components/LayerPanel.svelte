@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Layers3, Building2, TrainFront } from 'lucide-svelte';
+  import { Layers3, Building2, TrainFront } from '@lucide/svelte';
   export let basemap: 'liberty' | 'bright' | 'positron' = 'liberty';
   export let perspective = false;
   export let showNetwork = true;

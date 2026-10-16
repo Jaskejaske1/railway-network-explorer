@@ -12,7 +12,7 @@ def test_station_prefix_relevance_prioritises_major_served_stations(monkeypatch)
         return []
 
     monkeypatch.setattr(main, 'rows', fake_rows)
-    assert main.gtfs_stations(search='leu') == []
+    assert main.gtfs_stations(search='leu', limit=15) == []
     assert 'gtfs_connections popular' in seen['query']
     assert 'ILIKE %s OR s.name ILIKE %s' in seen['query']
     assert len(seen['params']) == 10

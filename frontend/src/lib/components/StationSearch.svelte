@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
-  import { Search, MapPin, X } from 'lucide-svelte';
+  import { Search, MapPin, X } from '@lucide/svelte';
   import { api, type Station } from '$lib/api';
 
   export let label = '';
@@ -75,14 +75,14 @@
   <div class="search-field">
     {#if label}<MapPin size={17} aria-hidden="true" />{:else}<Search size={17} aria-hidden="true" />{/if}
     <input id={label ? 'station-' + label : undefined} type="search" autocomplete="off"
-      aria-label={label || 'Station zoeken'} aria-expanded={open} aria-autocomplete="list"
+      aria-label={label || 'Station zoeken'} aria-expanded={open} aria-autocomplete="list" aria-controls={'station-options-' + (label || 'global')}
       role="combobox" placeholder={placeholder} bind:value={query}
       on:input={(event) => search(event.currentTarget.value)} on:keydown={keydown}
       on:focus={() => { if (suggestions.length) open = true; }} />
     {#if query}<button class="clear-control" type="button" aria-label="Zoekveld wissen" on:click={clear}><X size={15}/></button>{/if}
   </div>
   {#if open}
-    <div class="suggestions" role="listbox" aria-label="Stationsuggesties">
+    <div id={'station-options-' + (label || 'global')} class="suggestions" role="listbox" aria-label="Stationsuggesties">
       {#if busy}<div class="suggestion-note" role="status">Stations zoeken…</div>
       {:else if error}<div class="suggestion-note error" role="alert">{error}</div>
       {:else if suggestions.length === 0}<div class="suggestion-note">Geen stations gevonden</div>

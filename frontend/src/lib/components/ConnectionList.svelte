@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Clock3, ChevronDown, ChevronUp, TrainFront, ArrowRight } from 'lucide-svelte';
+  import { Clock3, ChevronDown, ChevronUp, TrainFront, ArrowRight } from '@lucide/svelte';
   import type { Journey } from '$lib/api';
 
   export let journeys: Journey[] = [];

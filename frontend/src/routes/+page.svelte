@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { TrainFront, Layers3, PanelLeftClose, PanelLeftOpen, ArrowLeft,
-    ArrowLeftRight, Box, Map as MapIcon, Search, Info, ChevronDown } from 'lucide-svelte';
+    ArrowLeftRight, Box, Map as MapIcon, Search, Info, ChevronDown } from '@lucide/svelte';
   import { api, EMPTY, type Station, type GeoCollection, type Journey, type Feed, type NetworkMeta } from '$lib/api';
   import { initialDeparture, isFuture } from '$lib/date';
   import RailMap from '$lib/components/RailMap.svelte';
@@ -53,10 +53,12 @@
   }
   function selectStation(station: Station, target: string) {
     if (target === 'to') to = station;
-    else if (target === 'via') via = station;
     else from = station;
     invalidate();
     inspected = null;
+  }
+  function chooseInspected(target: 'from' | 'to') {
+    if (inspected?.kind === 'station') selectStation(inspected.station, target);
   }
   function inspect(station: Station) {
     inspected = { kind: 'station', station };
@@ -166,8 +168,8 @@
               <h1>{inspected.station.name}</h1>
               <p class="subtle">NMBS-station · {inspected.station.lat.toFixed(5)}, {inspected.station.lon.toFixed(5)}</p>
               <div class="action-row">
-                <button class="primary-button" type="button" on:click={() => selectStation(inspected.station, 'from')}>Vertrek hier</button>
-                <button class="secondary-button" type="button" on:click={() => selectStation(inspected.station, 'to')}>Aankomst hier</button>
+                <button class="primary-button" type="button" on:click={() => chooseInspected('from')}>Vertrek hier</button>
+                <button class="secondary-button" type="button" on:click={() => chooseInspected('to')}>Aankomst hier</button>
               </div>
               <p class="detail-note">Realtime vertrekborden zijn nog niet aangesloten.</p>
             {:else}
