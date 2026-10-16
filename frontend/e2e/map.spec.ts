@@ -112,3 +112,73 @@ test('Skeleton Combobox supports keyboard selection and station swapping', async
   await expect(departure).toHaveValue('Leu');
   await expect(page.getByRole('option', { name: 'Leuven' })).toBeVisible();
 });
+
+test('map layer controls update MapLibre state and preserve overlays across basemap changes', async ({ page }) => {
+  // Deterministic style fixtures: prove MapLibre style switching, independent of external tile availability.
+  await page.route(/^https:\/\/tiles\.openfreemap\.org\/styles\/(liberty|bright|positron)\/?$/, async route => {
+    const name = new URL(route.request().url()).pathname.split('/').filter(Boolean).at(-1);
+    await route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({
+        version: 8, name: 'Atlas test ' + name,
+        sources: {}, layers: [{ id: 'test-background', type: 'background',
+          paint: { 'background-color': '#e8eef2' } }]
+      })
+    });
+  });
+
+  await page.goto('/');
+  await expect.poll(async () => page.evaluate(() =>
+    (window as any).__atlasMap?.getStyle()?.name)).toBe('Atlas test liberty');
+  await expect.poll(async () => page.evaluate(() =>
+    !!(window as any).__atlasMap?.getSource('atlas-network'))).toBe(true);
+
+  await page.getByRole('button', { name: 'Kaartlagen' }).click();
+  const railway = page.getByRole('switch', { name: 'Infrabel-netwerk' });
+  const stations = page.getByRole('switch', { name: 'Stations' });
+  const journey = page.getByRole('switch', { name: 'Geselecteerde reis' });
+  await railway.click();
+  await expect.poll(async () => page.evaluate(() =>
+    (window as any).__atlasMap.getLayoutProperty('atlas-rail', 'visibility'))).toBe('none');
+  await railway.click();
+  await expect.poll(async () => page.evaluate(() =>
+    (window as any).__atlasMap.getLayoutProperty('atlas-rail', 'visibility'))).toBe('visible');
+
+  await stations.click();
+  await expect.poll(async () => page.evaluate(() =>
+    (window as any).__atlasMap.getLayoutProperty('atlas-stations', 'visibility'))).toBe('none');
+  await expect.poll(async () => page.evaluate(() =>
+    (window as any).__atlasMap.getLayoutProperty('atlas-station-names', 'visibility'))).toBe('none');
+  await stations.click();
+  await expect.poll(async () => page.evaluate(() =>
+    (window as any).__atlasMap.getLayoutProperty('atlas-stations', 'visibility'))).toBe('visible');
+
+  await journey.click();
+  await expect.poll(async () => page.evaluate(() =>
+    (window as any).__atlasMap.getLayoutProperty('atlas-journey', 'visibility'))).toBe('none');
+  await journey.click();
+
+  const opacity = page.getByRole('slider');
+  await opacity.focus();
+  await opacity.press('ArrowLeft');
+  await expect.poll(async () => page.evaluate(() =>
+    (window as any).__atlasMap.getPaintProperty('atlas-rail', 'line-opacity'))).toBe(0.7);
+
+  await page.getByLabel('Basiskaart').selectOption('bright');
+  await expect.poll(async () => page.evaluate(() =>
+    (window as any).__atlasMap.getStyle()?.name)).toBe('Atlas test bright');
+  await expect.poll(async () => page.evaluate(() =>
+    !!(window as any).__atlasMap.getLayer('atlas-rail'))).toBe(true);
+  await expect.poll(async () => page.evaluate(() =>
+    (window as any).__atlasMap.getPaintProperty('atlas-rail', 'line-opacity'))).toBe(0.7);
+  await page.getByLabel('Basiskaart').selectOption('positron');
+  await expect.poll(async () => page.evaluate(() =>
+    (window as any).__atlasMap.getStyle()?.name)).toBe('Atlas test positron');
+
+  await page.getByRole('button', { name: 'Schakel naar 3D' }).click();
+  await expect.poll(async () => page.evaluate(() =>
+    (window as any).__atlasMap.getPitch())).toBeGreaterThan(40);
+  await page.getByRole('button', { name: 'Terug naar 2D' }).click();
+  await expect.poll(async () => page.evaluate(() =>
+    (window as any).__atlasMap.getPitch())).toBeLessThan(1);
+});
