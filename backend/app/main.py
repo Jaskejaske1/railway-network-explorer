@@ -188,6 +188,7 @@ def gtfs_stations(search: str = '', limit: int = Query(15, ge=1, le=50),
         return []
     term = search.strip()
     pattern = f'%{term}%'
+    prefix = f'{term}%'
     display = station_name_expression(lang)
     return rows(f'''
         SELECT s.stop_id AS id, {display} AS name,
@@ -204,11 +205,15 @@ def gtfs_stations(search: str = '', limit: int = Query(15, ge=1, le=50),
                    WHEN LOWER(s.name)=LOWER(%s) THEN 1
                    WHEN EXISTS (SELECT 1 FROM gtfs_station_translations exact
                                 WHERE exact.stop_id=s.stop_id AND LOWER(exact.name)=LOWER(%s)) THEN 2
-                   ELSE 3
+                   WHEN {display} ILIKE %s OR s.name ILIKE %s THEN 3
+                   ELSE 4
                  END,
-                 {display}, s.stop_id
+                 (SELECT COUNT(*) FROM gtfs_connections popular
+                  WHERE popular.from_stop_id=s.stop_id) DESC,
+                 LENGTH({display}), {display}, s.stop_id
         LIMIT %s
-    ''', (lang, pattern, pattern, pattern, term, term, term, limit))
+    ''', (lang, pattern, pattern, pattern, term, term, term,
+          prefix, prefix, limit))
 
 
 @app.get('/api/gtfs/stations/geojson')

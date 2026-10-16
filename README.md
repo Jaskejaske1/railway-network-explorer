@@ -1,8 +1,25 @@
-# Railway Network Explorer — v0.3.3
+# Atlas Rail — v0.4.0 (SvelteKit-migratie)
 
 > **Leidend productbesluit:** zie [docs/PRODUCT_DECISIONS.md](docs/PRODUCT_DECISIONS.md). Het project is nu uitsluitend gericht op **huidige en nabije toekomstige treinverbindingen en actuele infrastructuur**, zonder historisch archief. Project Atlas is de tijdelijke ontwikkelnaam.
 
-Interactieve webapplicatie die één zoek- en reisplanner combineert met de Infrabel-infrastructuurkaart en NMBS GTFS-dienstregeling. Treinreizen bestaan uit daadwerkelijke geplande GTFS-ritten en overstappen; de achtergronduitlijning van sporen komt uit Infrabel. In v0.3.3 worden treinreizen waar mogelijk langs Infrabel-station-naar-station-segmenten geprojecteerd (een **benadering**, niet de geverifieerde rijweg van de trein). Ontbrekende koppelingen blijven zichtbaar als **gestippelde rechte lijnen**.
+Interactieve webapplicatie die één zoek- en reisplanner combineert met de Infrabel-infrastructuurkaart en NMBS GTFS-dienstregeling. Treinreizen bestaan uit daadwerkelijke geplande GTFS-ritten en overstappen; de achtergronduitlijning van sporen komt uit Infrabel. Bij deze migratie worden treinreizen waar mogelijk langs Infrabel-station-naar-station-segmenten geprojecteerd (een **benadering**, niet de geverifieerde rijweg van de trein). Ontbrekende koppelingen blijven zichtbaar als **gestippelde rechte lijnen**.
+
+
+## Frontend v0.4.0 — SvelteKit
+
+De huidige frontend is **SvelteKit 2 + Svelte 5 + TypeScript + Skeleton UI 4 + MapLibre**. De oude React/Mantine-frontend is verwijderd. De Python FastAPI- en PostGIS-backend, je bestaande database en geïmporteerde GTFS-data blijven behouden.
+
+```powershell
+docker compose up -d --build
+docker compose exec web npm run check
+docker compose exec web npm test
+docker compose exec web npm run build
+docker compose exec api python -m pytest -q
+```
+
+Open [http://localhost:5173](http://localhost:5173). De webcontainer gebruikt server-side `API_ORIGIN=http://api:8000`. De OpenFreeMap-vectorbasiskaart heeft geen API-key nodig; bij een providerfout valt Atlas terug op een **lokale kaartstijl** die eigen Infrabel-GeoJSON nog kan tekenen. Een echte kaart- en reisplannertest loopt via Playwright in GitHub Actions.
+
+Dit is een **nieuwe frontendmijlpaal, geen voltooid productieplatform**. Realtime, arrive-by-routering, de optionele pass-through-via-stationfunctie, satelliet/hybride basemap en volledige viertalige interface zijn nog niet geïmplementeerd. Zie [docs/FRONTEND_ARCHITECTURE.md](docs/FRONTEND_ARCHITECTURE.md) en [docs/PRODUCT_DECISIONS.md](docs/PRODUCT_DECISIONS.md).
 
 ## Wat werkt in deze versie?
 
@@ -15,7 +32,7 @@ Interactieve webapplicatie die één zoek- en reisplanner combineert met de Infr
 
 **Bronnen:** Infrabel Open Data (operationele punten, `station_to_station`), NMBS GTFS Static via Belgian Mobility, stationsnaamvertalingen uit iRail, kaart © OpenStreetMap-bijdragers. Houd bij publicatie rekening met hun licenties en gebruiksvoorwaarden.
 
-## Update vanaf v0.3.1
+## Historische installatiehandleiding vanaf v0.3.1
 
 Zie [LOCAL-UPDATE.md](LOCAL-UPDATE.md) voor exacte Windows/PowerShell-instructies. De kern:
 
@@ -59,7 +76,7 @@ docker compose exec api pytest -q /app/tests
 docker compose exec web npm test
 ```
 
-De ontwikkelconfiguratie gebruikt Uvicorn/Vite met hot reload; niet rechtstreeks als publieke productie-server inzetten. Bij fouten: `docker compose logs api --tail 100`.
+De ontwikkelconfiguratie gebruikt Uvicorn/SvelteKit (Vite) met hot reload; niet rechtstreeks als publieke productie-server inzetten. Bij fouten: `docker compose logs api --tail 100`.
 
 
 ## v0.3.3 — Infrabel-lijngeometrie, toekomstige datums en overstappen

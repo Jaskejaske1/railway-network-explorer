@@ -33,12 +33,13 @@ services:
     build: ./frontend
     depends_on:
       - api
+    environment:
+      API_ORIGIN: http://api:8000
     ports:
       - "127.0.0.1:5173:5173"
     volumes:
       - ./frontend/src:/app/src:ro
-      - ./frontend/index.html:/app/index.html:ro
-      - ./frontend/vite.config.js:/app/vite.config.js:ro
+      - ./frontend/static:/app/static:ro
 
 volumes:
   postgres_data:
