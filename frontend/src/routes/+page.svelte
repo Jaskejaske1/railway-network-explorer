@@ -4,6 +4,7 @@
     ArrowLeftRight, Box, Map as MapIcon, Search, Info, ChevronDown } from '@lucide/svelte';
   import { api, EMPTY, type Station, type GeoCollection, type Journey, type Feed, type NetworkMeta } from '$lib/api';
   import { initialDeparture, isFuture } from '$lib/date';
+  import { Popover, Portal } from '@skeletonlabs/skeleton-svelte';
   import RailMap from '$lib/components/RailMap.svelte';
   import AtlasHeader from '$lib/components/AtlasHeader.svelte';
   import StationSearch from '$lib/components/StationSearch.svelte';
@@ -32,7 +33,6 @@
   let focus: Station | null = null;
   let plannerCollapsed = false;
   let panelOpen = true;
-  let layersOpen = false;
   let basemap: 'liberty' | 'bright' | 'positron' = 'liberty';
   let perspective = false;
   let showNetwork = true;
@@ -200,16 +200,22 @@
         {perspective} {basemap} {showNetwork} {showJourney} {showStations} {railOpacity}
         onStation={inspect} onSegment={inspectSegment}/>
       <div class="map-tools">
-        <button class="map-tool" type="button" aria-expanded={layersOpen} aria-label="Kaartlagen"
-          on:click={() => layersOpen = !layersOpen}><Layers3 size={19}/></button>
+        <Popover positioning={{ placement: 'left-start' }}>
+          <Popover.Trigger class="map-tool" aria-label="Kaartlagen">
+            <Layers3 size={19}/>
+          </Popover.Trigger>
+          <Portal>
+            <Popover.Positioner class="atlas-map-popover-positioner">
+              <Popover.Content class="card bg-surface-50-950 border border-surface-300-700 w-80 max-w-[80vw] p-4 shadow-xl">
+                <Popover.Title class="sr-only">Kaartlagen</Popover.Title>
+                <LayerPanel bind:basemap bind:perspective bind:showNetwork bind:showStations bind:showJourney bind:railOpacity/>
+              </Popover.Content>
+            </Popover.Positioner>
+          </Portal>
+        </Popover>
         <button class="map-tool" type="button" aria-label={perspective ? 'Terug naar 2D' : 'Schakel naar 3D'}
           on:click={() => perspective = !perspective}>{#if perspective}<MapIcon size={19}/>{:else}<Box size={19}/>{/if}</button>
       </div>
-      {#if layersOpen}
-        <div class="map-layer-flyout">
-          <LayerPanel bind:basemap bind:perspective bind:showNetwork bind:showStations bind:showJourney bind:railOpacity/>
-        </div>
-      {/if}
     </main>
   </div>
 </div>

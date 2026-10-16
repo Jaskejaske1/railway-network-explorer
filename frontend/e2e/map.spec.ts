@@ -65,6 +65,14 @@ test('map settings remain accessible without a connected backend', async ({ page
   await expect.poll(async () => page.evaluate(() => !!(window as any).__atlasMap?.getSource('atlas-network'))).toBeTruthy();
   await page.getByRole('button', { name: 'Kaartlagen' }).click();
   await expect(page.getByLabel('Basiskaart')).toBeVisible();
+  const railSwitch = page.getByRole('switch', { name: 'Infrabel-netwerk' });
+  await expect(railSwitch).toBeChecked();
+  await railSwitch.click();
+  await expect.poll(async () => page.evaluate(() =>
+    (window as any).__atlasMap?.getLayoutProperty('atlas-rail', 'visibility'))).toBe('none');
+  await railSwitch.click();
+  await expect.poll(async () => page.evaluate(() =>
+    (window as any).__atlasMap?.getLayoutProperty('atlas-rail', 'visibility'))).toBe('visible');
   await page.getByRole('button', { name: 'Schakel naar 3D' }).click();
   await expect(page.getByRole('button', { name: 'Terug naar 2D' })).toBeVisible();
 });

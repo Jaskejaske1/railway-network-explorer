@@ -109,16 +109,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .map-tools { z-index: 10; position: absolute; right: 15px; top: 16px; display: flex; flex-direction: column; gap: 9px; }
 .map-tool { height: 42px; width: 42px; border: 1px solid #e1e6ec; box-shadow: 0 3px 14px #1a31411c; color: #324a63; }
 .map-tool:hover { color: var(--atlas-blue); }
-.map-layer-flyout { z-index: 15; position: absolute; right: 70px; top: 16px; width: 285px; max-width: calc(100% - 95px);
-  border: 1px solid #e3e8ef; border-radius: 12px; background: #fff; box-shadow: 0 10px 35px #15284028; padding: 17px; }
-.layer-heading { display: flex; gap: 9px; align-items: center; margin-bottom: 19px; font-size: 15px; }
-.layer-heading svg { color: var(--atlas-blue); }
-.layer-separator { height: 1px; background: #e9edf3; margin: 16px 0; }
-.switch-row { display: flex; justify-content: space-between; gap: 12px; align-items: center;
-  margin: 11px 0; font-size: 12px; font-weight: 560; cursor: pointer; }
-.switch-row span { display: inline-flex; align-items: center; gap: 7px; }
-.switch-row input { accent-color: var(--atlas-blue); }
-.layer-panel input[type='range'] { width: 100%; accent-color: var(--atlas-blue); }
 .map-alert { position: absolute; z-index: 5; top: 15px; left: 15px; max-width: min(450px, calc(100% - 95px));
   background: #fff; border-left: 4px solid #bd7b27; border-radius: 8px; box-shadow: 0 4px 18px #20395225;
   display: flex; gap: 5px; flex-direction: column; padding: 12px 15px; font-size: 12px; }
@@ -159,3 +149,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 
 /* Zag sets --z-index:inline to auto; keep the portal above the journey form. */
 .atlas-station-positioner { --z-index: 1000 !important; }
+
+/* Zag-managed popover uses an inline --z-index:auto; keep settings above the map canvas. */
+.atlas-map-popover-positioner { --z-index: 1100 !important; }
