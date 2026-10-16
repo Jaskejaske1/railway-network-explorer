@@ -5,6 +5,7 @@
   import { api, EMPTY, type Station, type GeoCollection, type Journey, type Feed, type NetworkMeta } from '$lib/api';
   import { initialDeparture, isFuture } from '$lib/date';
   import RailMap from '$lib/components/RailMap.svelte';
+  import AtlasHeader from '$lib/components/AtlasHeader.svelte';
   import StationSearch from '$lib/components/StationSearch.svelte';
   import ConnectionList from '$lib/components/ConnectionList.svelte';
   import LayerPanel from '$lib/components/LayerPanel.svelte';
@@ -39,7 +40,6 @@
   let showJourney = true;
   let railOpacity = 0.8;
   let searchTarget = 'from';
-  let headerSearch: Station | null = null;
 
   $: validDeparture = isFuture(date, time);
   $: feedValid = !!feed?.available && (!feed.feed?.end_date || date <= feed.feed.end_date) &&
@@ -102,14 +102,6 @@
         if (failures.length) dataError = 'Niet alle gegevens konden geladen worden. Controleer de API en geïmporteerde datasets.';
       });
 
-    const shortcuts = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault();
-        (document.querySelector('.header-search input') as HTMLInputElement | null)?.focus();
-      }
-    };
-    window.addEventListener('keydown', shortcuts);
-    return () => window.removeEventListener('keydown', shortcuts);
   });
 
   async function changeLanguage(next: string) {
@@ -127,33 +119,10 @@
 </svelte:head>
 
 <div class="atlas-shell">
-  <header class="app-header">
-    <div class="brand" aria-label="Atlas Rail">
-      <span class="brand-icon"><TrainFront size={25}/></span>
-      <div><strong>Atlas Rail</strong><small>Belgisch spoorwegnet</small></div>
-    </div>
-    <div class="header-search">
-      <StationSearch placeholder="Zoek een station · Ctrl K" language={language}
-        bind:value={headerSearch} onSelect={inspect}/>
-    </div>
-    <div class="header-actions">
-      <label class="sr-only" for="lang">Taal</label>
-      <select id="lang" class="language-select" value={language} on:change={(e) => changeLanguage(e.currentTarget.value)}>
-        <option value="nl">Nederlands</option>
-        <option value="fr">Français</option>
-        <option value="de">Deutsch</option>
-        <option value="en">English</option>
-      </select>
-      <button class="icon-button" type="button" aria-label="Over Atlas" title="Geplande NMBS-dienstregeling, geen realtime"
-        on:click={() => alert('Atlas toont momenteel uitsluitend geplande NMBS GTFS-verbindingen. Realtimegegevens zijn nog niet aangesloten.')}>
-        <Info size={19}/>
-      </button>
-      <button class="icon-button" type="button" aria-label={panelOpen ? 'Zijpaneel sluiten' : 'Zijpaneel openen'}
-        on:click={() => panelOpen = !panelOpen}>
-        {#if panelOpen}<PanelLeftClose size={19}/>{:else}<PanelLeftOpen size={19}/>{/if}
-      </button>
-    </div>
-  </header>
+  <AtlasHeader {language} {panelOpen}
+    onLanguageChange={changeLanguage}
+    onPanelToggle={() => panelOpen = !panelOpen}
+    onStation={inspect}/>
 
   <div class="app-workspace">
     {#if panelOpen}

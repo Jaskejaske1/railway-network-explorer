@@ -68,3 +68,16 @@ test('map settings remain accessible without a connected backend', async ({ page
   await page.getByRole('button', { name: 'Schakel naar 3D' }).click();
   await expect(page.getByRole('button', { name: 'Terug naar 2D' })).toBeVisible();
 });
+
+
+test('Skeleton AppBar keeps header search and panel toggle accessible', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('banner')).toBeVisible();
+  await expect(page.getByRole('banner').getByText('Atlas Rail')).toBeVisible();
+  await page.keyboard.press('Control+k');
+  await expect(page.getByRole('banner').getByRole('combobox')).toBeFocused();
+  await page.getByRole('button', { name: 'Zijpaneel sluiten' }).click();
+  await expect(page.getByRole('button', { name: 'Zijpaneel openen' })).toBeVisible();
+  await page.getByRole('button', { name: 'Zijpaneel openen' }).click();
+  await expect(page.getByRole('heading', { name: 'Plan je treinreis' })).toBeVisible();
+});
