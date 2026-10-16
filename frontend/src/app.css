@@ -156,3 +156,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 
 /* The Skeleton AppBar owns header structure; only Atlas sizing stays here. */
 .app-header [data-scope="app-bar"] { min-width: 0; }
+
+/* Zag sets --z-index:inline to auto; keep the portal above the journey form. */
+.atlas-station-positioner { --z-index: 1000 !important; }

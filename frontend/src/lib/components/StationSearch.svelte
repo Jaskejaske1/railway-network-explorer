@@ -132,8 +132,8 @@
       <Combobox.ClearTrigger aria-label="Zoekveld wissen"><X size={15}/></Combobox.ClearTrigger>
     </Combobox.Control>
     <Portal>
-      <Combobox.Positioner class="z-[1000]">
-        <Combobox.Content class="max-h-80 overflow-y-auto shadow-xl">
+      <Combobox.Positioner class="atlas-station-positioner">
+        <Combobox.Content class="bg-surface-50-950 border border-surface-300-700 rounded-container max-h-80 overflow-y-auto p-1 shadow-xl">
           {#if busy}
             <li class="p-3 text-sm" role="status">Stations zoeken…</li>
           {:else if error}
