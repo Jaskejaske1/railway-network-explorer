@@ -6,7 +6,7 @@ De React/Mantine/Vite-frontend is vervangen door **SvelteKit 2, Svelte 5, TypeSc
 Skeleton UI 4, Tailwind 4, MapLibre GL JS en @lucide/svelte**. FastAPI en PostGIS
 zijn behouden en blijven eigenaar van GTFS, routeberekening en Infrabel-data.
 
-Atlas toont uitsluitend **huidige en toekomstige geplande treinverbindingen**.
+Atlas toont in de huidige implementatie uitsluitend **huidige en toekomstige geplande treinverbindingen**.
 Realtime wordt pas toegevoegd zodra een geldige feed is aangesloten; geen
 historisch archief, automatische opname of fictieve realtimeposities.
 
@@ -59,8 +59,23 @@ SvelteKit luistert op http://localhost:5173. De API is in Docker bereikbaar
 via `API_ORIGIN=http://api:8000` (uitsluitend server-side); geen CORS-config
 of publieke API-sleutel nodig. Directe FastAPI-documentatie: /docs op :8000.
 
-## Implementatiestatus
+## Implementatiestatus en grenzen van tests (16 oktober 2026)
 
-De frontend is naar SvelteKit omgezet en CI ingesteld. Build en browserchecks
-moeten door GitHub Actions en lokaal bevestigd worden voordat deze migratie
-als functioneel geaccepteerd geldt.
+De frontend is naar SvelteKit omgezet. GitHub Actions op commit `b64ae41`
+bevestigde typecontrole, unit-tests, productiebuild, backendtests en
+**vijf Playwright-browsertests** ([run](https://github.com/Jaskejaske1/railway-network-explorer/actions/runs/38885369674)).
+De browsertests testen daadwerkelijke MapLibre-eigenschappen maar gebruiken
+**gecontroleerde API-antwoorden en kaartstijlfixtures**. Ze bewijzen dus niet
+dat alle echte data, publieke externe kaarttegels of de gebruikerservaring
+aan de ontwerpspecificatie voldoen.
+
+De gebruiker heeft de huidige localhost-interface expliciet **visueel
+afgekeurd**. Geen verdere codewerkzaamheden zonder nieuwe instructie;
+de huidige opdracht is documentatie consolideren.
+
+De huidige componenten (`AtlasHeader`, `StationSearch`, `LayerPanel`)
+gebruiken Skeleton-componenten, maar er resteert veel project-specifieke CSS;
+'frameworks first' is een **kwaliteitsregel**, niet automatisch al bereikt.
+
+Zie [INDEX.md](INDEX.md), [PRODUCT_BLUEPRINT.md](PRODUCT_BLUEPRINT.md),
+[CURRENT_STATE.md](CURRENT_STATE.md) en [DELIVERY_ROADMAP.md](DELIVERY_ROADMAP.md).

@@ -1,3 +1,7 @@
+# Status van dit document
+
+**Vroeg technisch ontwerp (v0.1), niet de actuele bron van waarheid voor implementatie of scope.** De actuele applicatie omvat inmiddels GTFS-opslag, reisplanning en een SvelteKit-frontend. Controleer de echte backendtabellen en migraties voor de huidige databasestructuur. De voorstellen hieronder zijn niet automatisch geautoriseerde backlogitems. **Uitgesloten:** historische trein-/realtime-archieven, replay, tijdmachine. Zie [PRODUCT_DECISIONS.md](PRODUCT_DECISIONS.md) en [CURRENT_STATE.md](CURRENT_STATE.md).
+
 # Datamodel — versie 0.1
 
 ```mermaid
@@ -52,14 +56,14 @@ Infrabel-afstand als gewicht. `networkx.shortest_simple_paths` berekent de top-k
 kandidaatpaden. `via_id` concateneert twee kortste deelpaden. Fysieke kortste routes
 verschillen van reizigersdienstregelingen en officiële tariefreiswegen.
 
-## Vervolgmodel (nog niet geïmplementeerd)
+## Oorspronkelijk vervolgmodel (historisch voorstel, niet als actuele status lezen)
 
 - `gtfs_stops` + `station_identifier_mapping`: mapping PTCAR ↔ NMBS GTFS-stop-ID;
   nooit blind op naam koppelen.
 - `gtfs_trips`, `stop_times`, `calendar`, `calendar_dates`: kalenderafhankelijke treinritten.
 - `routing_restrictions`: eenrichtings-/exploitatie- en overstapbeperkingen waar mogelijk.
 - `subscription_rules`: afzonderlijke, door officiële voorwaarden gestuurde module.
-- `snapshots`/versiebeheer bij import in plaats van één actieve dataset.
+- Oorspronkelijk voorgesteld `snapshots`/versiebeheer bij import: hoogstens operationeel te interpreteren voor veilige activering/rollback, **niet** als historisch treinarchief. Alleen uitvoeren als afzonderlijk relevant besluit.
 
 ## Datahygiëne en onzekerheid
 

@@ -1,9 +1,26 @@
 # Atlas Rail — v0.4.0 (SvelteKit-migratie)
 
-> **Leidend productbesluit:** zie [docs/PRODUCT_DECISIONS.md](docs/PRODUCT_DECISIONS.md). Het project is nu uitsluitend gericht op **huidige en nabije toekomstige treinverbindingen en actuele infrastructuur**, zonder historisch archief. Project Atlas is de tijdelijke ontwikkelnaam.
+> **Documentatie-index (actueel):** [docs/INDEX.md](docs/INDEX.md). **Leidend productbesluit:** zie [docs/PRODUCT_DECISIONS.md](docs/PRODUCT_DECISIONS.md). Het project is nu uitsluitend gericht op **huidige en nabije toekomstige treinverbindingen en actuele infrastructuur**, zonder historisch archief. Project Atlas is de tijdelijke ontwikkelnaam.
 
 Interactieve webapplicatie die één zoek- en reisplanner combineert met de Infrabel-infrastructuurkaart en NMBS GTFS-dienstregeling. Treinreizen bestaan uit daadwerkelijke geplande GTFS-ritten en overstappen; de achtergronduitlijning van sporen komt uit Infrabel. Bij deze migratie worden treinreizen waar mogelijk langs Infrabel-station-naar-station-segmenten geprojecteerd (een **benadering**, niet de geverifieerde rijweg van de trein). Ontbrekende koppelingen blijven zichtbaar als **gestippelde rechte lijnen**.
 
+
+## Productvisie en actuele status (16 oktober 2026)
+
+De huidige UI is **door de gebruiker niet visueel geaccepteerd**. De SvelteKit-/MapLibre-kaart is inmiddels op localhost zichtbaar, maar de vormgeving ligt nog niet op het niveau van het afgesproken kaartconcept. Een groene CI-run is geen bewijs van een goedgekeurde productervaring.
+
+**De actuele opdracht is documentatie bewaren; geen verdere implementatie.** Alle uitgewerkte ideeën zijn geordend in:
+
+- [Documentatie-index en bronhiërarchie](docs/INDEX.md)
+- [Definitieve productbeslissingen en ingetrokken scope](docs/PRODUCT_DECISIONS.md)
+- [Functionele en visuele productblauwdruk](docs/PRODUCT_BLUEPRINT.md)
+- [Gefaseerde roadmap — geen nieuwe opdracht](docs/DELIVERY_ROADMAP.md)
+- [Huidige feitelijke status en geconstateerde tekortkomingen](docs/CURRENT_STATE.md)
+- [Technische frontendarchitectuur](docs/FRONTEND_ARCHITECTURE.md)
+
+**Harde grens:** alleen heden en nabije toekomst; geen historische ritopslag, replay of permanente opname van realtimefeeds. Productnamen zijn voorlopig. Eerst persoonlijk en gratis op localhost; publicatie/commercialisering later eventueel.
+
+**Let op:** de oudere v0.3.x-beschrijvingen onderaan deze README zijn **historische releaseaantekeningen** en bevatten achterhaalde voorbeelden, waaronder *verplicht overstappen in*. Ze zijn geen actieve implementatie-instructies of huidige productwensen.
 
 ## Frontend v0.4.0 — SvelteKit
 

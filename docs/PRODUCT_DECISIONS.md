@@ -2,7 +2,7 @@
 
 > **Status: BESLIST / leidend besluitregister**
 > **Vastgelegd:** 16 oktober 2026
-> **Huidige referentie:** `Jaskejaske1/railway-network-explorer`, commit `98abeb7` (v0.3.4, UI Increment 01).
+> **Oorspronkelijke referentie bij besluitvorming:** `98abeb7` (v0.3.4). **Actuele gedocumenteerde implementatiebasis:** `b64ae41` (SvelteKit; 16 oktober 2026).
 > **Project Atlas** is uitsluitend een **tijdelijke ontwikkelnaam**, geen definitieve branding. De bestaande repositorynaam hoeft niet te veranderen.
 > **Doel van dit document:** voorkom scope creep. Bij tegenstrijdigheden geldt de meest recente expliciete beslissing, met name de scopegrens in §1. Oudere ontwerpvoorstellen zijn niet automatisch opnieuw geldig.
 
@@ -54,8 +54,8 @@ Wat **niet** binnen scope valt:
 
 1. **Map-first:** de kaart domineert. CARTO Voyager als visuele geografische uitgangsbasis, niet een kale grijstintenkaart. Context (wegen, wijken, water, groen, relevante publieke locaties) helpt de gebruiker zich oriënteren.
 2. **Cartographic Studio als vormtaal**, gecombineerd met **Railway Wayfinding** voor leesbaarheid en informatiestroom. Sober maar niet kleurloos. Kleur communiceert betekenis, consistent in kaart en UI.
-3. Één coherente Mantine-theme met tokens, typografie, spacing en Tabler SVG-iconen. **Geen Unicode-/ASCII-pijlen of browserafhankelijke symbolen als bedieningsiconen; geen geïmproviseerde browser-embeddings of decoratieve dashboard-badges.**
-4. **Libraries eerst:** gebruik de bestaande Mantine-, MapLibre- en TanStack-oplossingen, en een volwassen router/i18n-library waar nodig. Geen eigen 'lijm': eventbus, drag-handlers, router, dropdown, overlay of dubbele state-opslag zolang standaardframeworks dit oplossen. Custom code uitsluitend voor productspecifieke domeinlogica.
+3. Één coherent **Skeleton UI 4 + Tailwind 4**-thema met tokens, typografie en spacing, plus **Lucide Svelte SVG-iconen**. **React/Mantine/Tabler zijn vervangen door de latere expliciet gekozen SvelteKit-stack.** **Geen Unicode-/ASCII-pijlen of browserafhankelijke symbolen als bedieningsiconen; geen geïmproviseerde browser-embeddings of decoratieve dashboard-badges.**
+4. **Libraries eerst:** gebruik de actuele **SvelteKit-, Skeleton- en MapLibre**-componenten en platformvoorzieningen; voeg router/i18n-libraries alleen toe als dit echt nodig is. Geen eigen 'lijm': eventbus, drag-handlers, router, dropdown, overlay of dubbele state-opslag zolang standaardframeworks dit oplossen. Custom code uitsluitend voor productspecifieke domeinlogica.
 5. Goede labels, subtitels, contextuele acties, natuurlijke navigatiestromen, toegankelijkheid, duidelijke laad-/fout-/lege statussen en mobiele bediening.
 6. Nieuwe informatieverzoeken mogen bestaande selectie en resultaten niet onbedoeld wissen. Zware routeberekeningen starten **expliciet** met een zoekactie; in de zoekvelden mogen suggesties automatisch komen.
 7. Geen demo-knoppen, ruwe databank-ID's, `WGS84`-labels, permanente statusbubbels of technische ontwikkelaarstekst in de hoofdinterface.
@@ -106,7 +106,7 @@ Nooit uitsluitend op kleur vertrouwen; labels, iconen, patronen en contrast blij
 
 ## 4. Data, backend en betrouwbaarheid
 
-- **Huidige stack behouden waar passend:** React + Vite, Mantine en MapLibre; FastAPI; PostgreSQL/PostGIS; Docker Compose; TanStack Query voor API-state. Geen technologie vervangen zonder probleem dat ermee opgelost wordt.
+- **Actuele stack (16 oktober 2026):** SvelteKit 2 + Svelte 5 + TypeScript; Skeleton UI 4/Tailwind 4; MapLibre GL JS; FastAPI; PostgreSQL/PostGIS; Docker Compose. **React/Mantine/TanStack Query zijn geen actuele stackkeuze meer.** Geen volgende stackvervanging zonder een concreet probleem en afzonderlijke beslissing.
 - Bronrollen gescheiden: **NMBS/Belgian Mobility** voor dienstregeling en actuele meldingen, **Infrabel** voor spoorweginfrastructuur en verrijkingsvelden, **iRail** voor stationsnamen voor zover toegestaan/beschikbaar, kaartprovider voor geografische oriëntatie.
 - Het huidige Infrabel-graafpad is **slechts een geometrische benadering** van het afgelegde spoor. Geen onbewezen claims over exacte sporen, wissels, perrons of posities.
 - Aanvullende huidige Infrabel-attributen (lijnnummer, elektrificatie, aantal sporen, verkeer, ETCS, mogelijk snelheid) importeren **alleen als bron/licentie en ruimtelijke koppeling zijn gevalideerd**. Geen afgeleide eigenschappen als feit voorstellen als niveau/match niet klopt.
@@ -121,10 +121,22 @@ Nooit uitsluitend op kleur vertrouwen; labels, iconen, patronen en contrast blij
 - **Eerst localhost en uitsluitend persoonlijk gebruik**; installatie en tests via Docker Compose op Windows. Geen Oracle-, Nginx-, domein-, betaal- of SaaS-uitrol nu.
 - We behouden de huidige PostgreSQL-data/volumes. **Nooit destructieve volume-reset** als normale update-instructie; `docker compose down -v` is niet toegestaan zonder afzonderlijk expliciet doel.
 - Kleine, functionele **verticale increments** met UI en backend die samen correct werken, maar geen ongecontroleerde wijziging van alles tegelijk.
-- Elke code-increment wordt aangeleverd als **volledige ZIP én `.patch`**, met basiscommit, changelog, toepassings-/rollbackcommando's en concrete tests. **De gebruiker past toe, test, commit en pusht. De assistent pusht niet.**
+- **Leveringsafspraak herzien:** oorspronkelijk ZIP + patch en door de gebruiker pushen; daarna expliciet gewijzigd naar **direct werken en committen op `main`** via de aangesloten GitHub-repository. **Actueel: de gebruiker heeft alle codewijzigingen gepauzeerd; alleen documentatie is toegestaan tot een nieuwe opdracht.** Bij hervatting geldt geen verplichte ZIP/patch-procedure, tenzij opnieuw gevraagd.
 - Volg de **Ponytail-skill**: kleinste volledige oplossing, bestaande frameworks/componenten, geen zelfgebouwde integratielijm, tests voor nieuwe betekenisvolle logica en uitleg van bekende beperkingen.
-- **Actieve prioriteit:** professionele lichte map-first UI-refactor van de huidige applicatie, gecombineerd met noodzakelijke API-/datamodelverbeteringen. Daarna live ritupdates en betrouwbare infrastructuurdata. Geen productiehosting totdat persoonlijke versie kwalitatief goed is.
-- Huidige bevestigde Git-basis bij vastlegging: `98abeb7` op `main`; Increment 01 (Mantine-stationszoeker) gecommit en gepusht door gebruiker. De nieuwe besluitdocumentatie is **geen nieuwe feature-release**.
+- **Actuele prioriteit (16 oktober 2026): uitsluitend het product en alle ideeën volledig en consistent documenteren.** De nieuwe SvelteKit-versie is technisch draaiend maar **visueel niet geaccepteerd**. Eventuele volgende implementatie: UI eerst beoordelen/herstellen, pas daarna verdere data-/realtimefuncties. Geen productiehosting totdat de persoonlijke versie kwalitatief goed is.
+- Bij oorspronkelijke vastlegging was de Git-basis `98abeb7`; deze historische mededeling beschrijft **niet** de huidige implementatie. Op 16 oktober toont het laatste lokale screenshot de SvelteKit-versie op `b64ae41`. Zie [CURRENT_STATE.md](CURRENT_STATE.md).
+
+## 5a. Expliciete herzieningen na het oorspronkelijke register (16 oktober 2026)
+
+De onderstaande uitspraken **vervangen eerdere technische/leveringskeuzes**; de functionele ontwerpvragen 1–54 blijven inhoudelijk bewaard.
+
+- **Harde scope extra bevestigd:** alleen **live/actuele situatie en nabije toekomstige verbindingen**, nooit een historisch archief; de eerder gekozen Q46/Q49/Q50 zijn definitief ingetrokken.
+- **Stack herzien:** React/Mantine is vervangen door SvelteKit/Svelte 5, Skeleton UI, Tailwind, MapLibre, FastAPI en PostGIS. Dit is de bestaande implementatie, **geen bewijs dat de UI goed is**.
+- **Git-afspraak herzien:** expliciet rechtstreeks wijzigingen op `main` toegestaan; geen automatische noodzaak tot patches. **Nieuwste instructie:** voorlopig alleen documentatie.
+- **Visuele beoordeling:** het oorspronkelijke rijke kaart-/3D-concept is *ontwerpreferentie*, geen daadwerkelijk gebouwde UI. De lokale screenshot van 16 oktober is door de gebruiker expliciet **niet geaccepteerd**; de kaart toont inmiddels wel een geografische basiskaart.
+- **Echte gebruikersacceptatie vereist:** tests/build/CI tonen technische eigenschappen, maar niet het juiste visuele ontwerp, externe providerbeschikbaarheid of correcte volledige productiegegevens.
+- **Geen nieuwe ontwikkelopdracht uit documentatie afleiden:** roadmap en blauwdruk zijn bewaarmiddelen. Bouw pas verder na expliciete instructie.
+- Uitwerking staat in [PRODUCT_BLUEPRINT.md](PRODUCT_BLUEPRINT.md), [CURRENT_STATE.md](CURRENT_STATE.md) en [DELIVERY_ROADMAP.md](DELIVERY_ROADMAP.md).
 
 ## 6. Vraag- en beslisregister
 
@@ -190,7 +202,7 @@ Dit register bewaart de expliciet gemaakte keuzes. **Vervallen** betekent dat ee
 ## 7. Wijzigingsprocedure voor dit besluitregister
 
 1. Alleen een **expliciete nieuwe gebruikersbeslissing** kan de live-only-scope of een andere harde productkeuze wijzigen.
-2. Een latere losse suggestie van de assistent is **geen goedkeuring** en geen backlogitem.
+2. Een latere losse suggestie van de assistent is **geen goedkeuring** en geen backlogitem. Ook de aanwezigheid van een wens in de blauwdruk is niet automatisch toestemming om die nu te bouwen.
 3. Maak bij wijzigingen een kleine, gerichte update van dit bestand, met datum, wat is vervangen en waarom.
 4. Vermeld in iedere relevante volgende increment expliciet: **geen historisch archief; alleen heden en nabije toekomst**.
 5. Ontwerpvragen zijn nu voldoende uitgewerkt om te ontwikkelen. Stel alleen een nieuwe vraag als er een reële product- of implementatiebeslissing ontbreekt.
