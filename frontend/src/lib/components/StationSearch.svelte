@@ -1,103 +1,154 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
   import { Search, MapPin, X } from '@lucide/svelte';
+  import { Combobox, Portal, useListCollection } from '@skeletonlabs/skeleton-svelte';
   import { api, type Station } from '$lib/api';
 
-  export let label = '';
-  export let placeholder = 'Zoek een station';
-  export let language = 'nl';
-  export let value: Station | null = null;
-  export let onSelect: (station: Station) => void = () => {};
+  type StationItem = { label: string; value: string; station: Station };
+  type Props = {
+    label?: string;
+    placeholder?: string;
+    language?: string;
+    value?: Station | null;
+    onSelect?: (station: Station) => void;
+  };
 
-  let query = '';
-  let suggestions: Station[] = [];
-  let open = false;
-  let busy = false;
-  let error = '';
+  let {
+    label = '',
+    placeholder = 'Zoek een station',
+    language = 'nl',
+    value = $bindable<Station | null>(null),
+    onSelect = () => {}
+  }: Props = $props();
+
+  let items = $state<StationItem[]>([]);
+  let query = $state('');
+  let selected = $state<string[]>([]);
+  let busy = $state(false);
+  let error = $state('');
+  let syncedId: string | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let controller: AbortController | undefined;
-  let selectedId = '';
+  let requestId = 0;
 
-  $: if (value?.id !== selectedId) {
-    selectedId = value?.id ?? '';
-    query = value?.name ?? '';
+  const collection = $derived(useListCollection({
+    items,
+    itemToValue: (item) => item.value,
+    itemToString: (item) => item.label
+  }));
+
+  // Parent actions such as swapping departure/arrival update the same input.
+  $effect(() => {
+    const nextId = value?.id ?? null;
+    if (nextId !== syncedId) {
+      syncedId = nextId;
+      selected = nextId ? [nextId] : [];
+      query = value?.name ?? '';
+      if (value) {
+        items = [{ label: value.name, value: value.id, station: value }];
+      }
+    }
+  });
+
+  function cancelPending() {
+    requestId++;
+    clearTimeout(timer);
+    controller?.abort();
+    controller = undefined;
+    busy = false;
   }
 
-  function search(text: string) {
-    query = text;
-    value = null;
-    selectedId = '';
+  function scheduleSearch(text: string) {
+    cancelPending();
     error = '';
-    controller?.abort();
-    clearTimeout(timer);
-    if (text.trim().length < 2) { suggestions = []; open = false; busy = false; return; }
-    open = true;
+    items = [];
+    const term = text.trim();
+    if (term.length < 2) return;
+
     busy = true;
+    const thisRequest = requestId;
     timer = setTimeout(async () => {
       controller = new AbortController();
+      const activeController = controller;
       try {
-        suggestions = await api.stations(text.trim(), language, controller.signal);
-        error = '';
+        const results = await api.stations(term, language, activeController.signal);
+        if (requestId !== thisRequest || activeController.signal.aborted) return;
+        items = results.map(station => ({
+          label: station.name,
+          value: station.id,
+          station
+        }));
       } catch (reason) {
-        if (controller.signal.aborted) return;
-        error = reason instanceof Error ? reason.message : 'Zoeken mislukt';
-        suggestions = [];
-      } finally { if (!controller.signal.aborted) busy = false; }
+        if (requestId !== thisRequest || activeController.signal.aborted) return;
+        items = [];
+        error = reason instanceof Error ? reason.message : 'Stations zoeken mislukt';
+      } finally {
+        if (requestId === thisRequest) busy = false;
+      }
     }, 180);
   }
 
-  function choose(station: Station) {
-    value = station;
-    selectedId = station.id;
-    query = station.name;
-    open = false;
-    suggestions = [];
-    onSelect(station);
+  function onInputValueChange(event: { inputValue: string }) {
+    query = event.inputValue;
+    if (value && query === value.name) return;
+    value = null;
+    syncedId = null;
+    selected = [];
+    scheduleSearch(query);
   }
 
-  function clear() {
-    value = null; selectedId = ''; query = ''; suggestions = []; open = false;
-    controller?.abort(); clearTimeout(timer);
-  }
-
-  function keydown(event: KeyboardEvent) {
-    if (event.key === 'Escape') { open = false; return; }
-    if (event.key === 'Enter' && open && suggestions[0]) {
-      event.preventDefault(); choose(suggestions[0]);
+  function onValueChange(event: { value: string[] }) {
+    const id = event.value[0];
+    if (!id) {
+      selected = [];
+      value = null;
+      syncedId = null;
+      return;
     }
+    const item = items.find(option => option.value === id);
+    if (!item) return;
+    cancelPending();
+    selected = [id];
+    value = item.station;
+    syncedId = id;
+    query = item.label;
+    onSelect(item.station);
   }
 
-  onDestroy(() => { clearTimeout(timer); controller?.abort(); });
+  onDestroy(cancelPending);
 </script>
 
 <div class="station-search">
-  {#if label}<label class="field-label" for={'station-' + label}>{label}</label>{/if}
-  <div class="search-field">
-    {#if label}<MapPin size={17} aria-hidden="true" />{:else}<Search size={17} aria-hidden="true" />{/if}
-    <input id={label ? 'station-' + label : undefined} type="search" autocomplete="off"
-      aria-label={label || 'Station zoeken'} aria-expanded={open} aria-autocomplete="list" aria-controls={'station-options-' + (label || 'global')}
-      role="combobox" placeholder={placeholder} bind:value={query}
-      on:input={(event) => search(event.currentTarget.value)} on:keydown={keydown}
-      on:focus={() => { if (suggestions.length) open = true; }} />
-    {#if query}<button class="clear-control" type="button" aria-label="Zoekveld wissen" on:click={clear}><X size={15}/></button>{/if}
-  </div>
-  {#if open}
-    <div id={'station-options-' + (label || 'global')} class="suggestions" role="listbox" aria-label="Stationsuggesties">
-      {#if busy}<div class="suggestion-note" role="status">Stations zoeken…</div>
-      {:else if error}<div class="suggestion-note error" role="alert">{error}</div>
-      {:else if suggestions.length === 0}<div class="suggestion-note">Geen stations gevonden</div>
-      {:else}
-        {#each suggestions as station (station.id)}
-          <button type="button" role="option" aria-selected={false} class="suggestion-item"
-            on:click={() => choose(station)}>
-            <MapPin size={16} aria-hidden="true" />
-            <span>{station.name}</span>
-            {#if station.original_name && station.original_name !== station.name}
-              <small>{station.original_name}</small>
-            {/if}
-          </button>
-        {/each}
-      {/if}
-    </div>
-  {/if}
+  <Combobox class="w-full" {collection} {placeholder}
+    inputBehavior="autohighlight"
+    inputValue={query} {onInputValueChange}
+    value={selected} {onValueChange}>
+    {#if label}<Combobox.Label class="field-label">{label}</Combobox.Label>{/if}
+    <Combobox.Control class="w-full">
+      <Combobox.Input aria-label={label || 'Station zoeken'} class="w-full" />
+      <Combobox.Trigger aria-label="Toon stationsuggesties">
+        {#if label}<MapPin size={16}/>{:else}<Search size={16}/>{/if}
+      </Combobox.Trigger>
+      <Combobox.ClearTrigger aria-label="Zoekveld wissen"><X size={15}/></Combobox.ClearTrigger>
+    </Combobox.Control>
+    <Portal>
+      <Combobox.Positioner class="z-[1000]">
+        <Combobox.Content class="max-h-80 overflow-y-auto shadow-xl">
+          {#if busy}
+            <li class="p-3 text-sm" role="status">Stations zoeken…</li>
+          {:else if error}
+            <li class="p-3 text-sm text-red-700" role="alert">{error}</li>
+          {:else if items.length === 0 && query.trim().length >= 2}
+            <li class="p-3 text-sm" role="status">Geen stations gevonden</li>
+          {/if}
+          {#each items as item (item.value)}
+            <Combobox.Item {item}>
+              <Combobox.ItemText>{item.label}</Combobox.ItemText>
+              <Combobox.ItemIndicator />
+            </Combobox.Item>
+          {/each}
+        </Combobox.Content>
+      </Combobox.Positioner>
+    </Portal>
+  </Combobox>
 </div>

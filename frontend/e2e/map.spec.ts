@@ -83,3 +83,23 @@ test('Skeleton AppBar keeps header search and panel toggle accessible', async ({
   await page.getByRole('button', { name: 'Zijpaneel openen' }).click();
   await expect(page.getByRole('heading', { name: 'Plan je treinreis' })).toBeVisible();
 });
+
+test('Skeleton Combobox supports keyboard selection and station swapping', async ({ page }) => {
+  await page.goto('/');
+  await expect.poll(async () => page.evaluate(() => !!(window as any).__atlasMap?.getSource('atlas-network')))
+    .toBeTruthy();
+  const departure = page.getByRole('combobox', { name: 'Van' });
+  await departure.fill('Leu');
+  await expect(page.getByRole('option', { name: 'Leuven' })).toBeVisible();
+  await departure.press('ArrowDown');
+  await departure.press('Enter');
+  await expect(departure).toHaveValue('Leuven');
+  const arrival = page.getByRole('combobox', { name: 'Naar' });
+  await arrival.fill('Wee');
+  await page.getByRole('option', { name: 'Weerde' }).click();
+  await page.getByRole('button', { name: 'Wissel vertrek en aankomst' }).click();
+  await expect(departure).toHaveValue('Weerde');
+  await expect(arrival).toHaveValue('Leuven');
+  await departure.fill('Leu');
+  await expect(page.getByRole('option', { name: 'Leuven' })).toBeVisible();
+});
