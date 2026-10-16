@@ -134,9 +134,9 @@ test('map layer controls update MapLibre state and preserve overlays across base
     !!(window as any).__atlasMap?.getSource('atlas-network'))).toBe(true);
 
   await page.getByRole('button', { name: 'Kaartlagen' }).click();
-  const railway = page.getByRole('switch', { name: 'Infrabel-netwerk' });
-  const stations = page.getByRole('switch', { name: 'Stations' });
-  const journey = page.getByRole('switch', { name: 'Geselecteerde reis' });
+  const railway = page.getByRole('checkbox', { name: 'Infrabel-netwerk' });
+  const stations = page.getByRole('checkbox', { name: 'Stations' });
+  const journey = page.getByRole('checkbox', { name: 'Geselecteerde reis' });
   await railway.click();
   await expect.poll(async () => page.evaluate(() =>
     (window as any).__atlasMap.getLayoutProperty('atlas-rail', 'visibility'))).toBe('none');
