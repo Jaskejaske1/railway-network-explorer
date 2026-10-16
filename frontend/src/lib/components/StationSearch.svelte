@@ -24,6 +24,7 @@
   let items = $state<StationItem[]>([]);
   let query = $state('');
   let selected = $state<string[]>([]);
+  let isOpen = $state(false);
   let busy = $state(false);
   let error = $state('');
   let syncedId: string | null = null;
@@ -44,6 +45,7 @@
       syncedId = nextId;
       selected = nextId ? [nextId] : [];
       query = value?.name ?? '';
+      isOpen = false;
       if (value) {
         items = [{ label: value.name, value: value.id, station: value }];
       }
@@ -63,6 +65,7 @@
     error = '';
     items = [];
     const term = text.trim();
+    isOpen = term.length >= 2;
     if (term.length < 2) return;
 
     busy = true;
@@ -100,6 +103,7 @@
   function onValueChange(event: { value: string[] }) {
     const id = event.value[0];
     if (!id) {
+      isOpen = false;
       selected = [];
       value = null;
       syncedId = null;
@@ -108,6 +112,7 @@
     const item = items.find(option => option.value === id);
     if (!item) return;
     cancelPending();
+    isOpen = false;
     selected = [id];
     value = item.station;
     syncedId = id;
@@ -120,6 +125,7 @@
 
 <div class="station-search">
   <Combobox class="w-full" {collection} {placeholder}
+    open={isOpen} onOpenChange={(event) => isOpen = event.open}
     inputBehavior="autohighlight"
     inputValue={query} {onInputValueChange}
     value={selected} {onValueChange}>
