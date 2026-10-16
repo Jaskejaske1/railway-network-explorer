@@ -75,7 +75,7 @@ test('Skeleton AppBar keeps header search and panel toggle accessible', async ({
   await expect(page.getByRole('banner')).toBeVisible();
   await expect(page.getByRole('banner').getByText('Atlas Rail')).toBeVisible();
   await page.keyboard.press('Control+k');
-  await expect(page.getByRole('banner').getByRole('combobox')).toBeFocused();
+  await expect(page.getByRole('banner').getByRole('combobox', { name: 'Station zoeken' })).toBeFocused();
   await page.getByRole('button', { name: 'Zijpaneel sluiten' }).click();
   await expect(page.getByRole('button', { name: 'Zijpaneel openen' })).toBeVisible();
   await page.getByRole('button', { name: 'Zijpaneel openen' }).click();
