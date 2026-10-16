@@ -66,11 +66,15 @@ test('map settings remain accessible without a connected backend', async ({ page
   await page.getByRole('button', { name: 'Kaartlagen' }).click();
   await expect(page.getByLabel('Basiskaart')).toBeVisible();
   const railSwitch = page.getByRole('checkbox', { name: 'Infrabel-netwerk' });
+  const railControl = page.getByRole('dialog', { name: 'Kaartlagen' })
+    .locator('[data-scope="switch"][data-part="control"]').first();
   await expect(railSwitch).toBeChecked();
-  await railSwitch.click();
+  await railControl.click();
+  await expect(railSwitch).not.toBeChecked();
   await expect.poll(async () => page.evaluate(() =>
     (window as any).__atlasMap?.getLayoutProperty('atlas-rail', 'visibility'))).toBe('none');
-  await railSwitch.click();
+  await railControl.click();
+  await expect(railSwitch).toBeChecked();
   await expect.poll(async () => page.evaluate(() =>
     (window as any).__atlasMap?.getLayoutProperty('atlas-rail', 'visibility'))).toBe('visible');
   await page.getByRole('button', { name: 'Schakel naar 3D' }).click();
@@ -137,26 +141,34 @@ test('map layer controls update MapLibre state and preserve overlays across base
   const railway = page.getByRole('checkbox', { name: 'Infrabel-netwerk' });
   const stations = page.getByRole('checkbox', { name: 'Stations' });
   const journey = page.getByRole('checkbox', { name: 'Geselecteerde reis' });
-  await railway.click();
+  const controls = page.getByRole('dialog', { name: 'Kaartlagen' })
+    .locator('[data-scope="switch"][data-part="control"]');
+  await controls.nth(0).click();
+  await expect(railway).not.toBeChecked();
   await expect.poll(async () => page.evaluate(() =>
     (window as any).__atlasMap.getLayoutProperty('atlas-rail', 'visibility'))).toBe('none');
-  await railway.click();
+  await controls.nth(0).click();
+  await expect(railway).toBeChecked();
   await expect.poll(async () => page.evaluate(() =>
     (window as any).__atlasMap.getLayoutProperty('atlas-rail', 'visibility'))).toBe('visible');
 
-  await stations.click();
+  await controls.nth(1).click();
+  await expect(stations).not.toBeChecked();
   await expect.poll(async () => page.evaluate(() =>
     (window as any).__atlasMap.getLayoutProperty('atlas-stations', 'visibility'))).toBe('none');
   await expect.poll(async () => page.evaluate(() =>
     (window as any).__atlasMap.getLayoutProperty('atlas-station-names', 'visibility'))).toBe('none');
-  await stations.click();
+  await controls.nth(1).click();
+  await expect(stations).toBeChecked();
   await expect.poll(async () => page.evaluate(() =>
     (window as any).__atlasMap.getLayoutProperty('atlas-stations', 'visibility'))).toBe('visible');
 
-  await journey.click();
+  await controls.nth(2).click();
+  await expect(journey).not.toBeChecked();
   await expect.poll(async () => page.evaluate(() =>
     (window as any).__atlasMap.getLayoutProperty('atlas-journey', 'visibility'))).toBe('none');
-  await journey.click();
+  await controls.nth(2).click();
+  await expect(journey).toBeChecked();
 
   const opacity = page.getByRole('slider');
   await opacity.focus();
