@@ -60,6 +60,9 @@ test('the railway map initializes and the planner calls the existing API', async
 
 test('map settings remain accessible without a connected backend', async ({ page }) => {
   await page.goto('/');
+  // Wait for SvelteKit hydration and MapLibre initialization before interacting.
+  await expect(page.locator('.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
+  await expect.poll(async () => page.evaluate(() => !!(window as any).__atlasMap?.getSource('atlas-network'))).toBeTruthy();
   await page.getByRole('button', { name: 'Kaartlagen' }).click();
   await expect(page.getByLabel('Basiskaart')).toBeVisible();
   await page.getByRole('button', { name: 'Schakel naar 3D' }).click();
