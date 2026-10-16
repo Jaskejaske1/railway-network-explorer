@@ -127,6 +127,7 @@
   <Combobox class="w-full" {collection} {placeholder}
     open={isOpen} onOpenChange={(event) => isOpen = event.open}
     inputBehavior="autohighlight"
+    selectionBehavior="preserve"
     inputValue={query} {onInputValueChange}
     value={selected} {onValueChange}>
     {#if label}<Combobox.Label class="field-label">{label}</Combobox.Label>{/if}

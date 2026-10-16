@@ -101,5 +101,6 @@ test('Skeleton Combobox supports keyboard selection and station swapping', async
   await expect(departure).toHaveValue('Weerde');
   await expect(arrival).toHaveValue('Leuven');
   await departure.fill('Leu');
+  await expect(departure).toHaveValue('Leu');
   await expect(page.getByRole('option', { name: 'Leuven' })).toBeVisible();
 });
